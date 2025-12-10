@@ -181,19 +181,19 @@ def insert_into_postgresql(df, conn, openai_client):
         # Generate embedding for description
         embedding = generate_embedding(row.get('txtDescricao', ''), openai_client)
         
-        # Insert data
+        # Insert data (matching ETL output columns)
         cursor.execute("""
             INSERT INTO despesas 
             (deputado_nome, deputado_partido, fornecedor_nome, fornecedor_cnpj, 
              valor, data, descricao, embedding)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """, (
-            row.get('deputado_nome', ''),
-            row.get('deputado_partido', ''),
-            row.get('fornecedor_nome', ''),
-            row.get('fornecedor_cnpj', ''),
-            row.get('valor', 0),
-            row.get('data', None),
+            row.get('nome', ''),  # ETL outputs 'nome'
+            row.get('siglaPartido', ''),  # ETL outputs 'siglaPartido'
+            row.get('txtFornecedor', ''),  # ETL outputs 'txtFornecedor'
+            row.get('cnpjCpfFornecedor', ''),  # ETL outputs 'cnpjCpfFornecedor'
+            row.get('vlrLiquido', 0),  # ETL outputs 'vlrLiquido'
+            row.get('datEmissao', None),  # ETL outputs 'datEmissao'
             row.get('txtDescricao', ''),
             embedding
         ))
@@ -238,12 +238,12 @@ def insert_into_neo4j(df, driver):
             """
             
             session.run(query, {
-                'deputado_nome': row.get('deputado_nome', ''),
-                'deputado_partido': row.get('deputado_partido', ''),
-                'fornecedor_nome': row.get('fornecedor_nome', ''),
-                'fornecedor_cnpj': row.get('fornecedor_cnpj', ''),
-                'valor': float(row.get('valor', 0)),
-                'data': str(row.get('data', '')),
+                'deputado_nome': row.get('nome', ''),  # ETL outputs 'nome'
+                'deputado_partido': row.get('siglaPartido', ''),  # ETL outputs 'siglaPartido'
+                'fornecedor_nome': row.get('txtFornecedor', ''),  # ETL outputs 'txtFornecedor'
+                'fornecedor_cnpj': row.get('cnpjCpfFornecedor', ''),  # ETL outputs 'cnpjCpfFornecedor'
+                'valor': float(row.get('vlrLiquido', 0)),  # ETL outputs 'vlrLiquido'
+                'data': str(row.get('datEmissao', '')),  # ETL outputs 'datEmissao'
                 'descricao': row.get('txtDescricao', '')
             })
     
