@@ -11,8 +11,10 @@ This script performs sequential validation:
 
 import os
 import sys
+import uuid
 from pathlib import Path
 from datetime import datetime
+from urllib.parse import urlparse
 
 # Try importing colorama for colored output, fallback to ANSI codes
 try:
@@ -60,6 +62,49 @@ def print_header(title):
 
 
 # =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+def parse_supabase_host(supabase_url):
+    """
+    Parse and normalize Supabase URL to database host format.
+    
+    Args:
+        supabase_url (str): Supabase URL (can be https://xxx.supabase.co or db.xxx.supabase.co)
+        
+    Returns:
+        str: Database host in format db.{project-ref}.supabase.co
+        
+    Raises:
+        ValueError: If URL format is invalid
+    """
+    if not supabase_url or supabase_url == 'insira_aqui':
+        raise ValueError("Invalid Supabase URL")
+    
+    # Remove protocol if present
+    host = supabase_url.replace("https://", "").replace("http://", "")
+    
+    # Remove trailing slashes
+    host = host.rstrip('/')
+    
+    # If already in db.xxx.supabase.co format, return as-is
+    if host.startswith("db."):
+        return host
+    
+    # Extract project reference and convert to database host
+    try:
+        # Parse the hostname to extract project reference
+        parts = host.split('.')
+        if len(parts) >= 3 and 'supabase' in host:
+            project_ref = parts[0]
+            return f"db.{project_ref}.supabase.co"
+        else:
+            raise ValueError(f"Unable to parse Supabase URL format: {supabase_url}")
+    except Exception as e:
+        raise ValueError(f"Invalid Supabase URL format: {supabase_url} - {str(e)}")
+
+
+# =============================================================================
 # PHASE 1: Environment Variables Validation
 # =============================================================================
 
@@ -75,6 +120,8 @@ NEO4J_PASSWORD=insira_aqui
 
 # PostgreSQL/Supabase Configuration
 SUPABASE_URL=insira_aqui
+SUPABASE_PORT=5432
+SUPABASE_DB=postgres
 SUPABASE_USER=postgres
 SUPABASE_PASSWORD=insira_aqui
 
@@ -307,10 +354,11 @@ def test_postgresql_connection():
     try:
         if supabase_url and supabase_url != 'insira_aqui':
             # Supabase connection
-            host = supabase_url.replace("https://", "").replace("http://", "")
-            if not host.startswith("db."):
-                project_ref = host.split('.')[0]
-                host = f"db.{project_ref}.supabase.co"
+            try:
+                host = parse_supabase_host(supabase_url)
+            except ValueError as e:
+                print_error(f"Formato inválido de URL do Supabase: {str(e)}")
+                return False
             
             conn = psycopg2.connect(
                 host=host,
@@ -477,8 +525,8 @@ def test_dummy_data_insertion():
         from neo4j import GraphDatabase
         from openai import OpenAI
         
-        # Generate a unique test ID to avoid conflicts
-        test_id = f"TEST_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        # Generate a unique test ID to avoid conflicts (using uuid for guaranteed uniqueness)
+        test_id = f"TEST_{uuid.uuid4().hex[:12]}"
         
         # Test data
         test_deputado = f"Deputado Teste {test_id}"
@@ -494,10 +542,11 @@ def test_dummy_data_insertion():
         supabase_url = os.getenv('SUPABASE_URL')
         
         if supabase_url and supabase_url != 'insira_aqui':
-            host = supabase_url.replace("https://", "").replace("http://", "")
-            if not host.startswith("db."):
-                project_ref = host.split('.')[0]
-                host = f"db.{project_ref}.supabase.co"
+            try:
+                host = parse_supabase_host(supabase_url)
+            except ValueError as e:
+                print_error(f"Formato inválido de URL do Supabase: {str(e)}")
+                return False
             
             conn = psycopg2.connect(
                 host=host,
