@@ -766,11 +766,51 @@ if __name__ == "__main__":
     # Load environment variables from .env file if needed
     load_dotenv()
     
-    # Environment variables can be accessed using os.getenv()
-    # Example:
-    # openai_api_key = os.getenv("OPENAI_API_KEY")
-    # neo4j_uri = os.getenv("NEO4J_URI")
-    # neo4j_user = os.getenv("NEO4J_USER")
-    # neo4j_password = os.getenv("NEO4J_PASSWORD")
+    print("RAG Pipeline - Sistema de Recomendação de Filmes")
+    print("=" * 50)
+    print("Digite 'sair' ou 'exit' para encerrar o programa")
+    print("=" * 50)
+    print()
     
-    print("RAG Pipeline initialized successfully")
+    while True:
+        try:
+            # Solicitar a pergunta do usuário
+            print("\nDigite sua pergunta sobre filmes:")
+            text_query = input("> ").strip()
+            
+            # Verificar se o usuário quer sair
+            if text_query.lower() in ['sair', 'exit', 'quit']:
+                print("\nEncerrando o programa. Até logo!")
+                break
+            
+            # Verificar se a entrada não está vazia
+            if not text_query:
+                print("Por favor, digite uma pergunta válida.")
+                continue
+            
+            # Solicitar o título do filme semente (opcional)
+            print("\nDigite um título de filme relacionado (ou deixe em branco para busca geral):")
+            graph_seed_title = input("> ").strip()
+            
+            # Se não fornecer um título semente, usar um padrão
+            if not graph_seed_title:
+                graph_seed_title = ""
+            
+            print("\nProcessando sua pergunta...")
+            
+            # Chamar a função de RAG para gerar a resposta
+            resposta = answer_question_with_rag(text_query, graph_seed_title)
+            
+            # Exibir a resposta
+            print("\n" + "=" * 50)
+            print("RESPOSTA:")
+            print("=" * 50)
+            print(resposta)
+            print("=" * 50)
+            
+        except KeyboardInterrupt:
+            print("\n\nEncerrando o programa. Até logo!")
+            break
+        except Exception as e:
+            print(f"\nErro ao processar sua pergunta: {e}")
+            print("Por favor, tente novamente.")
