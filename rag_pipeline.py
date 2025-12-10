@@ -154,13 +154,28 @@ def search_hybrid_neo4j(text_query, graph_seed_title, k=10):
     Returns:
         List of movieIds sorted by fused ranking score
     """
-    # Call the three search functions
-    lexical_results = search_lexical_neo4j(text_query, k)
-    vectorial_results = search_vectorial_neo4j(text_query, k)
-    graph_results = search_graph_neo4j(graph_seed_title, k)
+    # Call the three search functions with error handling
+    ranked_lists = []
+    
+    try:
+        lexical_results = search_lexical_neo4j(text_query, k)
+        ranked_lists.append(lexical_results)
+    except Exception as e:
+        print(f"Warning: Lexical search failed: {e}")
+    
+    try:
+        vectorial_results = search_vectorial_neo4j(text_query, k)
+        ranked_lists.append(vectorial_results)
+    except Exception as e:
+        print(f"Warning: Vectorial search failed: {e}")
+    
+    try:
+        graph_results = search_graph_neo4j(graph_seed_title, k)
+        ranked_lists.append(graph_results)
+    except Exception as e:
+        print(f"Warning: Graph search failed: {e}")
     
     # Combine results using reciprocal rank fusion
-    ranked_lists = [lexical_results, vectorial_results, graph_results]
     fused_ranking = reciprocal_rank_fusion(ranked_lists)
     
     return fused_ranking
