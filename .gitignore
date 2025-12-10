@@ -26,3 +26,6 @@ Thumbs.db
 
 # ChromaDB vector database directory
 chroma_db/
+
+# ETL output files
+despesas_camara.csv
