@@ -39,10 +39,7 @@ def reciprocal_rank_fusion(search_results, k=60):
             score_contribution = 1 / (k + rank)
             
             # Add the contribution to the movie's total RRF score
-            if movie_id in rrf_scores:
-                rrf_scores[movie_id] += score_contribution
-            else:
-                rrf_scores[movie_id] = score_contribution
+            rrf_scores[movie_id] = rrf_scores.get(movie_id, 0) + score_contribution
     
     # Convert the dictionary to a DataFrame
     df = pd.DataFrame(list(rrf_scores.items()), columns=['movie_id', 'rrf_score'])
