@@ -109,7 +109,7 @@ def generate_embedding(text, client):
 
 def setup_postgresql_table(conn):
     """
-    Create the despesas table in PostgreSQL with pgvector extension.
+    Create the despesas_parlamentares table in PostgreSQL with pgvector extension.
     
     Args:
         conn: psycopg2 connection object
@@ -121,21 +121,21 @@ def setup_postgresql_table(conn):
     cursor.execute("CREATE EXTENSION IF NOT EXISTS vector;")
     
     # Drop table if exists (for clean setup)
-    print("Creating despesas table...")
-    cursor.execute("DROP TABLE IF EXISTS despesas;")
+    print("Creating despesas_parlamentares table...")
+    cursor.execute("DROP TABLE IF EXISTS despesas_parlamentares;")
     
     # Create table with text and embedding columns
+    # Note: Column names match what auditor_ai.py expects
     cursor.execute(f"""
-        CREATE TABLE despesas (
+        CREATE TABLE despesas_parlamentares (
             id SERIAL PRIMARY KEY,
-            deputado_nome TEXT,
-            deputado_partido TEXT,
-            fornecedor_nome TEXT,
-            fornecedor_cnpj TEXT,
+            nome_deputado TEXT,
+            cnpj_fornecedor TEXT,
+            nome_fornecedor TEXT,
+            descricao_despesa TEXT,
             valor NUMERIC,
-            data DATE,
-            descricao TEXT,
-            embedding vector({EMBEDDING_DIMENSION})
+            data_despesa DATE,
+            descricao_embedding vector({EMBEDDING_DIMENSION})
         );
     """)
     
@@ -155,9 +155,9 @@ def create_hnsw_index(conn):
     
     print("Creating HNSW index for vector search...")
     cursor.execute("""
-        CREATE INDEX IF NOT EXISTS despesas_embedding_idx 
-        ON despesas 
-        USING hnsw (embedding vector_cosine_ops);
+        CREATE INDEX IF NOT EXISTS despesas_parlamentares_embedding_idx 
+        ON despesas_parlamentares 
+        USING hnsw (descricao_embedding vector_cosine_ops);
     """)
     
     conn.commit()
@@ -229,27 +229,25 @@ def insert_into_postgresql(df, conn, openai_client):
         # Map CSV columns from ETL to database columns
         # ETL produces: nome, siglaPartido, txtFornecedor, cnpjCpfFornecedor, vlrLiquido, datEmissao
         deputado_nome = row.get('nome', row.get('deputado_nome', ''))
-        deputado_partido = row.get('siglaPartido', row.get('deputado_partido', ''))
         fornecedor_nome = row.get('txtFornecedor', row.get('fornecedor_nome', ''))
         fornecedor_cnpj = sanitize_cnpj(row.get('cnpjCpfFornecedor', row.get('fornecedor_cnpj', '')))
         valor = convert_valor(row.get('vlrLiquido', row.get('valor', 0)))
         data = row.get('datEmissao', row.get('data', None))
         descricao = row.get('txtDescricao', '')
         
-        # Insert data
+        # Insert data with column names matching auditor_ai.py expectations
         cursor.execute("""
-            INSERT INTO despesas 
-            (deputado_nome, deputado_partido, fornecedor_nome, fornecedor_cnpj, 
-             valor, data, descricao, embedding)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO despesas_parlamentares 
+            (nome_deputado, cnpj_fornecedor, nome_fornecedor, 
+             descricao_despesa, valor, data_despesa, descricao_embedding)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (
             deputado_nome,
-            deputado_partido,
-            fornecedor_nome,
             fornecedor_cnpj,
+            fornecedor_nome,
+            descricao,
             valor,
             data,
-            descricao,
             embedding
         ))
         
@@ -435,7 +433,7 @@ def main():
     print("=" * 60)
     print(f"\nSummary:")
     print(f"  - Records processed: {len(df)}")
-    print(f"  - PostgreSQL: Table 'despesas' populated with embeddings")
+    print(f"  - PostgreSQL: Table 'despesas_parlamentares' populated with embeddings")
     print(f"  - Neo4j: Nodes and relationships created")
     print("=" * 60)
 
