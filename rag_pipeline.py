@@ -11,6 +11,9 @@ from langchain_openai import ChatOpenAI
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 
+# Load environment variables at module level
+load_dotenv()
+
 def search_graph_actors(movie_title, limit=10):
     """
     Finds movies related to movie_title by shared actors (collaborative recommendation).
@@ -22,16 +25,20 @@ def search_graph_actors(movie_title, limit=10):
     Returns:
         List of dictionaries with movieId, title, and score (count of common actors)
     """
-    # Load environment variables
-    load_dotenv()
-    
     # Get Neo4j connection details from environment
     neo4j_uri = os.getenv("NEO4J_URI")
     neo4j_user = os.getenv("NEO4J_USERNAME")
     neo4j_password = os.getenv("NEO4J_PASSWORD")
     
     if not all([neo4j_uri, neo4j_user, neo4j_password]):
-        raise ValueError("Neo4j connection details not found in environment variables")
+        missing = []
+        if not neo4j_uri:
+            missing.append("NEO4J_URI")
+        if not neo4j_user:
+            missing.append("NEO4J_USERNAME")
+        if not neo4j_password:
+            missing.append("NEO4J_PASSWORD")
+        raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
     
     # Create Neo4j driver
     driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
