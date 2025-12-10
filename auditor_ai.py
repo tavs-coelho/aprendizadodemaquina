@@ -9,6 +9,8 @@ para auditar despesas parlamentares usando múltiplas fontes de busca:
 """
 
 import os
+import logging
+from urllib.parse import quote_plus
 import pandas as pd
 from neo4j import GraphDatabase
 import openai
@@ -17,6 +19,10 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 # Carregar variáveis de ambiente
@@ -163,8 +169,10 @@ def search_semantic(query_text, limit=10):
             f"Error: {e}"
         )
     
-    # Construir connection string do PostgreSQL
-    connection_string = f"postgresql://{db_user}:{db_password}@{db_url}"
+    # Construir connection string do PostgreSQL com codificação segura
+    encoded_user = quote_plus(db_user)
+    encoded_password = quote_plus(db_password)
+    connection_string = f"postgresql://{encoded_user}:{encoded_password}@{db_url}"
     
     # Criar engine do SQLAlchemy
     engine = create_engine(connection_string)
@@ -181,10 +189,10 @@ def search_semantic(query_text, limit=10):
                     descricao_despesa,
                     valor,
                     data_despesa,
-                    (descricao_embedding <=> :query_embedding::vector) AS distance
+                    (descricao_embedding <=> CAST(:query_embedding AS vector)) AS distance
                 FROM despesas_parlamentares
                 WHERE descricao_embedding IS NOT NULL
-                ORDER BY descricao_embedding <=> :query_embedding::vector
+                ORDER BY descricao_embedding <=> CAST(:query_embedding AS vector)
                 LIMIT :limit
             """)
             
@@ -388,6 +396,27 @@ def format_expense_context(expenses):
     return "\n".join(context_parts)
 
 
+def _create_expense_id(expense):
+    """
+    Cria um ID único para uma despesa baseado em seus campos principais.
+    
+    Args:
+        expense: Dicionário contendo informações da despesa
+    
+    Returns:
+        str: ID único para a despesa
+    """
+    # Criar ID baseado em campos-chave para identificação única
+    id_parts = [
+        str(expense.get('nome_deputado', '')),
+        str(expense.get('cnpj_fornecedor', '')),
+        str(expense.get('valor', '')),
+        str(expense.get('data_despesa', ''))
+    ]
+    # Usar hash para criar um ID único e curto
+    return str(hash(tuple(id_parts)))
+
+
 def auditor_ai(user_question, search_strategies=None):
     """
     Sistema RAG completo para auditoria de despesas parlamentares.
@@ -420,8 +449,9 @@ def auditor_ai(user_question, search_strategies=None):
             "Please set OPENAI_API_KEY to use the ChatOpenAI model."
         )
     
-    # Coletar resultados de diferentes buscas
-    all_expenses = []
+    # Coletar resultados de diferentes buscas para aplicar RRF
+    search_result_lists = []
+    all_expenses_dict = {}  # Para armazenar os detalhes das despesas
     
     # Se nenhuma estratégia foi especificada, usar apenas busca semântica
     if search_strategies is None:
@@ -431,43 +461,88 @@ def auditor_ai(user_question, search_strategies=None):
         # Busca Lexical por Deputado
         if 'lexical_deputado' in search_strategies:
             deputado_name = search_strategies['lexical_deputado']
-            lexical_results = search_lexical(deputado_name, search_type="deputado", limit=5)
-            all_expenses.extend(lexical_results)
+            try:
+                lexical_results = search_lexical(deputado_name, search_type="deputado", limit=10)
+                # Criar IDs únicos para cada despesa
+                result_ids = []
+                for expense in lexical_results:
+                    expense_id = _create_expense_id(expense)
+                    result_ids.append(expense_id)
+                    all_expenses_dict[expense_id] = expense
+                search_result_lists.append(result_ids)
+            except Exception as e:
+                logger.warning(f"Lexical search by deputado failed: {e}")
         
         # Busca Lexical por CNPJ
         if 'lexical_cnpj' in search_strategies:
             cnpj = search_strategies['lexical_cnpj']
-            cnpj_results = search_lexical(cnpj, search_type="cnpj", limit=5)
-            all_expenses.extend(cnpj_results)
+            try:
+                cnpj_results = search_lexical(cnpj, search_type="cnpj", limit=10)
+                result_ids = []
+                for expense in cnpj_results:
+                    expense_id = _create_expense_id(expense)
+                    result_ids.append(expense_id)
+                    all_expenses_dict[expense_id] = expense
+                search_result_lists.append(result_ids)
+            except Exception as e:
+                logger.warning(f"Lexical search by CNPJ failed: {e}")
         
         # Busca Semântica
         if search_strategies.get('semantic'):
-            semantic_results = search_semantic(user_question, limit=5)
-            all_expenses.extend(semantic_results)
+            try:
+                semantic_results = search_semantic(user_question, limit=10)
+                result_ids = []
+                for expense in semantic_results:
+                    expense_id = _create_expense_id(expense)
+                    result_ids.append(expense_id)
+                    all_expenses_dict[expense_id] = expense
+                search_result_lists.append(result_ids)
+            except Exception as e:
+                logger.warning(f"Semantic search failed: {e}")
         
         # Busca de Padrões no Grafo
         if 'graph_patterns' in search_strategies:
             pattern_config = search_strategies['graph_patterns']
-            pattern_results = search_graph_patterns(
-                pattern_config.get('type'),
-                pattern_config.get('value'),
-                limit=5
-            )
-            all_expenses.extend(pattern_results)
+            try:
+                pattern_results = search_graph_patterns(
+                    pattern_config.get('type'),
+                    pattern_config.get('value'),
+                    limit=10
+                )
+                result_ids = []
+                for expense in pattern_results:
+                    expense_id = _create_expense_id(expense)
+                    result_ids.append(expense_id)
+                    all_expenses_dict[expense_id] = expense
+                search_result_lists.append(result_ids)
+            except Exception as e:
+                logger.warning(f"Graph pattern search failed: {e}")
     
     except Exception as e:
-        # Se houver erro nas buscas, usar apenas o que conseguiu coletar
-        print(f"Warning: Some searches failed: {e}")
+        logger.error(f"Unexpected error during search: {e}")
+        # Continue with any results we managed to collect
     
-    # Remover duplicatas (se houver IDs para identificar)
-    # Como não temos IDs únicos, vamos manter todas as despesas
-    # Em uma implementação real, você deveria ter um ID único para cada despesa
+    # Aplicar Reciprocal Rank Fusion se houver múltiplos resultados
+    if len(search_result_lists) > 1:
+        # Usar RRF para combinar e rankear resultados
+        fused_df = reciprocal_rank_fusion(search_result_lists, k=60)
+        # Pegar os top resultados ranqueados
+        top_expense_ids = fused_df['despesa_id'].head(15).tolist()
+        # Recuperar as despesas correspondentes
+        final_expenses = [all_expenses_dict[exp_id] for exp_id in top_expense_ids if exp_id in all_expenses_dict]
+    elif len(search_result_lists) == 1:
+        # Se só temos uma busca, usar os resultados diretos (sem duplicatas)
+        unique_ids = list(dict.fromkeys(search_result_lists[0]))  # Preserva ordem
+        final_expenses = [all_expenses_dict[exp_id] for exp_id in unique_ids[:15]]
+    else:
+        # Nenhuma busca retornou resultados
+        final_expenses = []
     
     # Formatar contexto
-    context = format_expense_context(all_expenses)
+    context = format_expense_context(final_expenses)
     
     # Se não encontrou nenhuma despesa
-    if not all_expenses:
+    if not final_expenses:
         return ("Desculpe, não encontrei despesas parlamentares relevantes para sua pergunta. "
                 "Tente reformular sua pergunta ou verificar se os dados estão disponíveis no sistema.")
     
