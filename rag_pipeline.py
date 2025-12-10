@@ -11,6 +11,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
+import chromadb
 
 
 def reciprocal_rank_fusion(search_results, k=60):
@@ -469,6 +470,81 @@ def search_hybrid_neo4j(text_query, graph_seed_title, k=10):
     fused_ranking = reciprocal_rank_fusion(ranked_lists)
     
     return fused_ranking
+
+
+def search_document_vector(query_text, k=3):
+    """
+    Performs vector similarity search in the document index (ChromaDB) created.
+    
+    Args:
+        query_text (str): The text query to search for
+        k (int): Number of most similar results to return (default=3)
+    
+    Returns:
+        list: List of dictionaries containing metadata and content of matched chunks.
+              Each dictionary has the following structure:
+              {
+                  'content': str,  # The text content of the chunk
+                  'metadata': dict,  # Associated metadata
+                  'distance': float  # Similarity distance
+              }
+    
+    Raises:
+        ValueError: If OPENAI_API_KEY environment variable is not set
+        RuntimeError: If ChromaDB collection is not found or other database errors occur
+    """
+    # Validate OpenAI API key
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    if not openai_api_key:
+        raise ValueError(
+            "Missing OPENAI_API_KEY environment variable. "
+            "Please set OPENAI_API_KEY to generate embeddings."
+        )
+    
+    # Initialize OpenAI client
+    client = openai.OpenAI(api_key=openai_api_key)
+    
+    # Generate embedding for the query text
+    response = client.embeddings.create(
+        input=query_text,
+        model="text-embedding-3-small"
+    )
+    query_embedding = response.data[0].embedding
+    
+    # Initialize ChromaDB client
+    chroma_client = chromadb.PersistentClient(path="./chroma_db")
+    
+    try:
+        # Get or create collection for documents
+        collection = chroma_client.get_collection(name="documents")
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to access ChromaDB collection 'documents'. "
+            f"Make sure the collection exists and is properly initialized. Error: {e}"
+        )
+    
+    # Perform similarity search
+    results = collection.query(
+        query_embeddings=[query_embedding],
+        n_results=k
+    )
+    
+    # Format results
+    formatted_results = []
+    
+    if results['documents'] and len(results['documents']) > 0:
+        documents = results['documents'][0]  # First query result
+        metadatas = results['metadatas'][0] if results.get('metadatas') else [{}] * len(documents)
+        distances = results['distances'][0] if results.get('distances') else [0.0] * len(documents)
+        
+        for i in range(len(documents)):
+            formatted_results.append({
+                'content': documents[i],
+                'metadata': metadatas[i] if i < len(metadatas) else {},
+                'distance': distances[i] if i < len(distances) else 0.0
+            })
+    
+    return formatted_results
 
 
 # Load environment variables
