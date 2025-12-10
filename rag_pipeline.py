@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 
 def search_hybrid_neo4j(text_query, graph_seed_title, limit=5):
     """
-    Perform a hybrid search in Neo4j combining vector and keyword search.
+    Perform a keyword-based search in Neo4j for movies.
     
     Args:
         text_query (str): The query text to search for
@@ -24,11 +24,21 @@ def search_hybrid_neo4j(text_query, graph_seed_title, limit=5):
         
     Returns:
         list: List of dictionaries containing movie information (title, plot)
+        
+    Raises:
+        ValueError: If required environment variables are not set
     """
     # Load environment variables
     neo4j_uri = os.getenv("NEO4J_URI")
     neo4j_username = os.getenv("NEO4J_USERNAME")
     neo4j_password = os.getenv("NEO4J_PASSWORD")
+    
+    # Validate required environment variables
+    if not all([neo4j_uri, neo4j_username, neo4j_password]):
+        raise ValueError(
+            "Missing required Neo4j environment variables. "
+            "Please set NEO4J_URI, NEO4J_USERNAME, and NEO4J_PASSWORD."
+        )
     
     # Create Neo4j driver
     driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password))
@@ -37,11 +47,11 @@ def search_hybrid_neo4j(text_query, graph_seed_title, limit=5):
     
     try:
         with driver.session() as session:
-            # Perform hybrid search: find movies related to the seed title
+            # Perform keyword search: find movies related to the seed title
             # and matching the text query
             query = """
             MATCH (m:Movie)
-            WHERE m.title CONTAINS $graph_seed_title 
+            WHERE toLower(m.title) CONTAINS toLower($graph_seed_title)
                OR toLower(m.plot) CONTAINS toLower($text_query)
                OR toLower(m.title) CONTAINS toLower($text_query)
             RETURN m.title AS title, m.plot AS plot
@@ -80,7 +90,18 @@ def answer_question_with_rag(text_query, graph_seed_title):
         
     Returns:
         str: The generated answer
+        
+    Raises:
+        ValueError: If OPENAI_API_KEY is not set in environment variables
     """
+    # Validate OpenAI API key is available
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    if not openai_api_key:
+        raise ValueError(
+            "Missing OPENAI_API_KEY environment variable. "
+            "Please set OPENAI_API_KEY to use the ChatOpenAI model."
+        )
+    
     # Step 1: Call search_hybrid_neo4j to retrieve relevant movies
     movies = search_hybrid_neo4j(text_query, graph_seed_title)
     
@@ -109,7 +130,7 @@ Resposta:"""
     )
     
     # Step 4: Set up ChatOpenAI with gpt-4o-mini model
-    llm = ChatOpenAI(model='gpt-4o-mini', temperature=0.7)
+    llm = ChatOpenAI(model='gpt-4o-mini', temperature=0.7, api_key=openai_api_key)
     
     # Step 5: Build LangChain chain using the modern LCEL syntax
     chain = prompt | llm
