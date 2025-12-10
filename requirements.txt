@@ -28,3 +28,6 @@ pypdf>=3.0.0
 
 # Additional useful packages for RAG pipelines
 python-dotenv>=1.0.0
+
+# HTTP requests for ETL scripts
+requests>=2.31.0
