@@ -6,16 +6,18 @@ Reads despesas_camara.csv and populates Neo4j and PostgreSQL databases.
 import os
 import pandas as pd
 import psycopg2
-from psycopg2.extensions import register_adapter, AsIs
 from pgvector.psycopg2 import register_vector
 from neo4j import GraphDatabase
 import openai
 from tqdm import tqdm
 from dotenv import load_dotenv
-import time
 
 # Load environment variables
 load_dotenv()
+
+# Constants
+EMBEDDING_DIMENSION = 1536  # Dimension for text-embedding-3-small model
+BATCH_SIZE = 1000  # Number of rows to commit at once for PostgreSQL
 
 
 def get_postgres_connection():
@@ -29,9 +31,15 @@ def get_postgres_connection():
     supabase_url = os.getenv("SUPABASE_URL")
     
     if supabase_url:
-        # Parse Supabase URL (format: https://xxx.supabase.co)
-        # Connection string for Supabase
+        # Parse Supabase URL (format: https://xxxxx.supabase.co or db.xxxxx.supabase.co)
+        # Extract host for database connection
         host = supabase_url.replace("https://", "").replace("http://", "")
+        # Supabase database connections typically use db.{project-ref}.supabase.co format
+        if not host.startswith("db."):
+            # Convert project URL to database URL
+            project_ref = host.split('.')[0]
+            host = f"db.{project_ref}.supabase.co"
+        
         conn = psycopg2.connect(
             host=host,
             port=os.getenv("SUPABASE_PORT", "5432"),
@@ -95,8 +103,8 @@ def generate_embedding(text, client):
         return response.data[0].embedding
     except Exception as e:
         print(f"Error generating embedding: {e}")
-        # Return a zero vector of the expected dimension (1536 for text-embedding-3-small)
-        return [0.0] * 1536
+        # Return a zero vector of the expected dimension
+        return [0.0] * EMBEDDING_DIMENSION
 
 
 def setup_postgresql_table(conn):
@@ -117,7 +125,7 @@ def setup_postgresql_table(conn):
     cursor.execute("DROP TABLE IF EXISTS despesas;")
     
     # Create table with text and embedding columns
-    cursor.execute("""
+    cursor.execute(f"""
         CREATE TABLE despesas (
             id SERIAL PRIMARY KEY,
             deputado_nome TEXT,
@@ -127,7 +135,7 @@ def setup_postgresql_table(conn):
             valor NUMERIC,
             data DATE,
             descricao TEXT,
-            embedding vector(1536)
+            embedding vector({EMBEDDING_DIMENSION})
         );
     """)
     
@@ -190,8 +198,8 @@ def insert_into_postgresql(df, conn, openai_client):
             embedding
         ))
         
-        # Commit every 100 rows for efficiency
-        if (idx + 1) % 100 == 0:
+        # Commit every BATCH_SIZE rows for efficiency
+        if (idx + 1) % BATCH_SIZE == 0:
             conn.commit()
     
     # Final commit
