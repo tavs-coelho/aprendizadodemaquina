@@ -10,6 +10,7 @@ para auditar despesas parlamentares usando múltiplas fontes de busca:
 
 import os
 import logging
+import hashlib
 from urllib.parse import quote_plus
 import pandas as pd
 from neo4j import GraphDatabase
@@ -55,8 +56,10 @@ def search_lexical(query, search_type="deputado", limit=10):
             "Please set SUPABASE_URL, SUPABASE_USER, and SUPABASE_PASSWORD."
         )
     
-    # Construir connection string do PostgreSQL
-    connection_string = f"postgresql://{db_user}:{db_password}@{db_url}"
+    # Construir connection string do PostgreSQL com codificação segura
+    encoded_user = quote_plus(db_user)
+    encoded_password = quote_plus(db_password)
+    connection_string = f"postgresql://{encoded_user}:{encoded_password}@{db_url}"
     
     # Criar engine do SQLAlchemy
     engine = create_engine(connection_string)
@@ -115,7 +118,8 @@ def search_lexical(query, search_type="deputado", limit=10):
             return results
     
     finally:
-        engine.dispose()
+        if engine:
+            engine.dispose()
 
 
 def search_semantic(query_text, limit=10):
@@ -215,7 +219,8 @@ def search_semantic(query_text, limit=10):
             return results
     
     finally:
-        engine.dispose()
+        if engine:
+            engine.dispose()
 
 
 def search_graph_patterns(query_type, param_value, limit=10):
@@ -400,6 +405,8 @@ def _create_expense_id(expense):
     """
     Cria um ID único para uma despesa baseado em seus campos principais.
     
+    Usa hash SHA256 para garantir IDs consistentes e determinísticos.
+    
     Args:
         expense: Dicionário contendo informações da despesa
     
@@ -413,8 +420,9 @@ def _create_expense_id(expense):
         str(expense.get('valor', '')),
         str(expense.get('data_despesa', ''))
     ]
-    # Usar hash para criar um ID único e curto
-    return str(hash(tuple(id_parts)))
+    # Usar hashlib.sha256 para criar um ID determinístico
+    id_string = '|'.join(id_parts)
+    return hashlib.sha256(id_string.encode('utf-8')).hexdigest()[:16]
 
 
 def auditor_ai(user_question, search_strategies=None):
@@ -457,70 +465,65 @@ def auditor_ai(user_question, search_strategies=None):
     if search_strategies is None:
         search_strategies = {'semantic': True}
     
-    try:
-        # Busca Lexical por Deputado
-        if 'lexical_deputado' in search_strategies:
-            deputado_name = search_strategies['lexical_deputado']
-            try:
-                lexical_results = search_lexical(deputado_name, search_type="deputado", limit=10)
-                # Criar IDs únicos para cada despesa
-                result_ids = []
-                for expense in lexical_results:
-                    expense_id = _create_expense_id(expense)
-                    result_ids.append(expense_id)
-                    all_expenses_dict[expense_id] = expense
-                search_result_lists.append(result_ids)
-            except Exception as e:
-                logger.warning(f"Lexical search by deputado failed: {e}")
-        
-        # Busca Lexical por CNPJ
-        if 'lexical_cnpj' in search_strategies:
-            cnpj = search_strategies['lexical_cnpj']
-            try:
-                cnpj_results = search_lexical(cnpj, search_type="cnpj", limit=10)
-                result_ids = []
-                for expense in cnpj_results:
-                    expense_id = _create_expense_id(expense)
-                    result_ids.append(expense_id)
-                    all_expenses_dict[expense_id] = expense
-                search_result_lists.append(result_ids)
-            except Exception as e:
-                logger.warning(f"Lexical search by CNPJ failed: {e}")
-        
-        # Busca Semântica
-        if search_strategies.get('semantic'):
-            try:
-                semantic_results = search_semantic(user_question, limit=10)
-                result_ids = []
-                for expense in semantic_results:
-                    expense_id = _create_expense_id(expense)
-                    result_ids.append(expense_id)
-                    all_expenses_dict[expense_id] = expense
-                search_result_lists.append(result_ids)
-            except Exception as e:
-                logger.warning(f"Semantic search failed: {e}")
-        
-        # Busca de Padrões no Grafo
-        if 'graph_patterns' in search_strategies:
-            pattern_config = search_strategies['graph_patterns']
-            try:
-                pattern_results = search_graph_patterns(
-                    pattern_config.get('type'),
-                    pattern_config.get('value'),
-                    limit=10
-                )
-                result_ids = []
-                for expense in pattern_results:
-                    expense_id = _create_expense_id(expense)
-                    result_ids.append(expense_id)
-                    all_expenses_dict[expense_id] = expense
-                search_result_lists.append(result_ids)
-            except Exception as e:
-                logger.warning(f"Graph pattern search failed: {e}")
+    # Busca Lexical por Deputado
+    if 'lexical_deputado' in search_strategies:
+        deputado_name = search_strategies['lexical_deputado']
+        try:
+            lexical_results = search_lexical(deputado_name, search_type="deputado", limit=10)
+            # Criar IDs únicos para cada despesa
+            result_ids = []
+            for expense in lexical_results:
+                expense_id = _create_expense_id(expense)
+                result_ids.append(expense_id)
+                all_expenses_dict[expense_id] = expense
+            search_result_lists.append(result_ids)
+        except Exception as e:
+            logger.warning(f"Lexical search by deputado failed: {e}")
     
-    except Exception as e:
-        logger.error(f"Unexpected error during search: {e}")
-        # Continue with any results we managed to collect
+    # Busca Lexical por CNPJ
+    if 'lexical_cnpj' in search_strategies:
+        cnpj = search_strategies['lexical_cnpj']
+        try:
+            cnpj_results = search_lexical(cnpj, search_type="cnpj", limit=10)
+            result_ids = []
+            for expense in cnpj_results:
+                expense_id = _create_expense_id(expense)
+                result_ids.append(expense_id)
+                all_expenses_dict[expense_id] = expense
+            search_result_lists.append(result_ids)
+        except Exception as e:
+            logger.warning(f"Lexical search by CNPJ failed: {e}")
+    
+    # Busca Semântica
+    if search_strategies.get('semantic'):
+        try:
+            semantic_results = search_semantic(user_question, limit=10)
+            result_ids = []
+            for expense in semantic_results:
+                expense_id = _create_expense_id(expense)
+                result_ids.append(expense_id)
+                all_expenses_dict[expense_id] = expense
+            search_result_lists.append(result_ids)
+        except Exception as e:
+            logger.warning(f"Semantic search failed: {e}")
+    
+    # Busca de Padrões no Grafo
+    if 'graph_patterns' in search_strategies:
+        pattern_config = search_strategies['graph_patterns']
+        try:
+            pattern_results = search_graph_patterns(
+                pattern_config.get('type'),
+                pattern_config.get('value'),
+                limit=10
+            )
+            result_ids = []
+            for expense in pattern_results:
+                expense_id = _create_expense_id(expense)
+                result_ids.append(expense_id)
+                all_expenses_dict[expense_id] = expense
+            search_result_lists.append(result_ids)
+        except Exception as e:
+            logger.warning(f"Graph pattern search failed: {e}")
     
     # Aplicar Reciprocal Rank Fusion se houver múltiplos resultados
     if len(search_result_lists) > 1:
