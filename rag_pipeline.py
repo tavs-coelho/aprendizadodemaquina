@@ -8,6 +8,8 @@ import pandas as pd
 from neo4j import GraphDatabase
 import openai
 from langchain_openai import ChatOpenAI
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 
@@ -179,6 +181,94 @@ def search_hybrid_neo4j(text_query, graph_seed_title, k=10):
     fused_ranking = reciprocal_rank_fusion(ranked_lists)
     
     return fused_ranking
+
+
+def get_movie_details(movie_ids):
+    """
+    Retrieves movie details (title, plot) from Neo4j for given movie IDs.
+    
+    Args:
+        movie_ids: List of movieIds to retrieve details for
+    
+    Returns:
+        List of dictionaries containing movie details (title, plot)
+    """
+    neo4j_uri = os.getenv("NEO4J_URI")
+    neo4j_username = os.getenv("NEO4J_USERNAME")
+    neo4j_password = os.getenv("NEO4J_PASSWORD")
+    
+    driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password))
+    
+    try:
+        with driver.session() as session:
+            query = """
+            MATCH (m:Movie)
+            WHERE m.movieId IN $movie_ids
+            RETURN m.title AS title, m.plot AS plot, m.movieId AS movieId
+            """
+            result = session.run(query, movie_ids=movie_ids)
+            movies = [{"title": record["title"], "plot": record["plot"], "movieId": record["movieId"]} 
+                      for record in result]
+            return movies
+    finally:
+        driver.close()
+
+
+def answer_question_with_rag(text_query, graph_seed_title):
+    """
+    Answers a question using Retrieval-Augmented Generation (RAG).
+    
+    This function:
+    1. Calls search_hybrid_neo4j to retrieve relevant movie IDs
+    2. Retrieves movie details (title, plot) from Neo4j
+    3. Formats the movie data into a context string
+    4. Uses ChatOpenAI with gpt-4o-mini model and a prompt template
+    5. Builds a LangChain chain to generate the final answer
+    
+    Args:
+        text_query: Text query string for the question
+        graph_seed_title: Title of the seed movie for graph-based search
+    
+    Returns:
+        String containing the generated answer
+    """
+    # Step 1: Call search_hybrid_neo4j to get relevant movie IDs
+    movie_ids = search_hybrid_neo4j(text_query, graph_seed_title, k=10)
+    
+    # Step 2: Retrieve movie details for the returned IDs
+    movies = get_movie_details(movie_ids)
+    
+    # Step 3: Format movie data into a context string
+    context = ""
+    for movie in movies:
+        title = movie.get("title", "Unknown")
+        plot = movie.get("plot", "No plot available")
+        context += f"Título: {title}\nEnredo: {plot}\n\n"
+    
+    # Step 4: Create prompt template for RAG
+    prompt_template = PromptTemplate(
+        input_variables=["context", "question"],
+        template="""Você é um assistente especializado em filmes. Use o contexto fornecido abaixo para responder à pergunta do usuário de forma precisa e informativa.
+
+Contexto dos filmes:
+{context}
+
+Pergunta: {question}
+
+Resposta:"""
+    )
+    
+    # Step 5: Initialize ChatOpenAI with gpt-4o-mini model
+    llm = ChatOpenAI(model='gpt-4o-mini', temperature=0.7)
+    
+    # Step 6: Build LangChain chain using LCEL (LangChain Expression Language)
+    output_parser = StrOutputParser()
+    chain = prompt_template | llm | output_parser
+    
+    # Step 7: Generate and return final answer
+    response = chain.invoke({"context": context, "question": text_query})
+    
+    return response
 
 
 # Load environment variables
