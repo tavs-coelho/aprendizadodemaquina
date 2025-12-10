@@ -9,11 +9,11 @@ from neo4j import GraphDatabase
 import openai
 from langchain_openai import ChatOpenAI
 from sqlalchemy import create_engine
+from dotenv import load_dotenv
 
 # Load environment variables
 if __name__ == "__main__":
     # Load environment variables from .env file if needed
-    from dotenv import load_dotenv
     load_dotenv()
     
     # Environment variables can be accessed using os.getenv()
