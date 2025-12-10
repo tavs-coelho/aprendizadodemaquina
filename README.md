@@ -2,6 +2,46 @@
 
 Este será um projeto da Universidade Federal de Goiás (UFG).
 
+## Como Usar
+
+### Interface Interativa de Terminal
+
+Para usar o sistema de recomendação de filmes com interface interativa:
+
+```bash
+python rag_pipeline.py
+```
+
+O sistema iniciará uma interface de linha de comando onde você pode:
+1. Digitar perguntas sobre filmes
+2. (Opcional) Fornecer um título de filme relacionado para melhorar as recomendações
+3. Receber respostas geradas pela IA usando RAG (Retrieval-Augmented Generation)
+
+Para sair do programa, digite `sair`, `exit` ou `quit`, ou pressione `Ctrl+C`.
+
+#### Exemplo de Uso
+
+```
+RAG Pipeline - Sistema de Recomendação de Filmes
+==================================================
+Digite 'sair' ou 'exit' para encerrar o programa
+==================================================
+
+Digite sua pergunta sobre filmes:
+> Me recomende filmes de ação
+
+Digite um título de filme relacionado (ou deixe em branco para busca geral):
+> Matrix
+
+Processando sua pergunta...
+
+==================================================
+RESPOSTA:
+==================================================
+[Resposta da IA com recomendações de filmes]
+==================================================
+```
+
 ## Funcionalidades
 
 ### Indexação de Documentos PDF
