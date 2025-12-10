@@ -8,12 +8,36 @@ import pandas as pd
 from neo4j import GraphDatabase
 import openai
 from langchain_openai import ChatOpenAI
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langchain_openai import OpenAIEmbeddings
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 
 
+def index_documents(pdf_path, chunk_size=1000):
+    """
+    Processes a PDF document and stores its chunks in a local vector database.
+    
+    Args:
+        pdf_path: Path to the PDF file to process
+        chunk_size: Size of text chunks for splitting (default=1000)
+    
+    Returns:
+        FAISS vector store containing the indexed document chunks
+    
+    Raises:
+        ValueError: If OPENAI_API_KEY environment variable is not set
+        FileNotFoundError: If the PDF file does not exist
+    """
+    # Validate PDF file exists
+    if not os.path.exists(pdf_path):
+        raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+    
+    # Check for OpenAI API key
 def reciprocal_rank_fusion(search_results, k=60):
     """
     Applies Reciprocal Rank Fusion (RRF) to combine multiple search results.
@@ -126,6 +150,27 @@ def search_vector_neo4j(query_text, limit=10):
     if not openai_api_key:
         raise ValueError("OPENAI_API_KEY environment variable is not set")
     
+    # Load the PDF document using PyPDFLoader
+    loader = PyPDFLoader(pdf_path)
+    documents = loader.load()
+    
+    # Split the documents into chunks using RecursiveCharacterTextSplitter
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=200,  # Add overlap to maintain context between chunks
+        length_function=len,
+    )
+    chunks = text_splitter.split_documents(documents)
+    
+    # Create embeddings using OpenAI (automatically uses OPENAI_API_KEY env var)
+    embeddings = OpenAIEmbeddings()
+    
+    # Create and populate FAISS vector store
+    vectorstore = FAISS.from_documents(chunks, embeddings)
+    
+    return vectorstore
+
+
     # Initialize OpenAI client
     client = openai.OpenAI(api_key=openai_api_key)
     
