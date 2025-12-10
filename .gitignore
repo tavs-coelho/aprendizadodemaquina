@@ -23,3 +23,6 @@ ENV/
 # OS
 .DS_Store
 Thumbs.db
+
+# ChromaDB vector database directory
+chroma_db/
