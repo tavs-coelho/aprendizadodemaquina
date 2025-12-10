@@ -505,22 +505,33 @@ def search_document_vector(query_text, k=3):
     client = openai.OpenAI(api_key=openai_api_key)
     
     # Generate embedding for the query text
-    response = client.embeddings.create(
-        input=query_text,
-        model="text-embedding-3-small"
-    )
-    query_embedding = response.data[0].embedding
+    try:
+        response = client.embeddings.create(
+            input=query_text,
+            model="text-embedding-3-small"
+        )
+        query_embedding = response.data[0].embedding
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to generate embeddings using OpenAI API. "
+            f"Please check your API key and network connection. Error: {e}"
+        )
     
     # Initialize ChromaDB client
     chroma_client = chromadb.PersistentClient(path="./chroma_db")
     
     try:
-        # Get or create collection for documents
+        # Get existing collection for documents
         collection = chroma_client.get_collection(name="documents")
+    except ValueError as e:
+        # ChromaDB raises ValueError when collection doesn't exist
+        raise RuntimeError(
+            f"ChromaDB collection 'documents' not found. "
+            f"Make sure the collection exists and is properly initialized. Error: {e}"
+        )
     except Exception as e:
         raise RuntimeError(
-            f"Failed to access ChromaDB collection 'documents'. "
-            f"Make sure the collection exists and is properly initialized. Error: {e}"
+            f"Failed to access ChromaDB collection 'documents'. Error: {e}"
         )
     
     # Perform similarity search
