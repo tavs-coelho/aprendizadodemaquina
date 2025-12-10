@@ -26,11 +26,17 @@ def index_documents(pdf_path, chunk_size=1000):
     
     Returns:
         FAISS vector store containing the indexed document chunks
-    """
-    # Load environment variables
-    load_dotenv()
-    openai_api_key = os.getenv("OPENAI_API_KEY")
     
+    Raises:
+        ValueError: If OPENAI_API_KEY environment variable is not set
+        FileNotFoundError: If the PDF file does not exist
+    """
+    # Validate PDF file exists
+    if not os.path.exists(pdf_path):
+        raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+    
+    # Check for OpenAI API key
+    openai_api_key = os.getenv("OPENAI_API_KEY")
     if not openai_api_key:
         raise ValueError("OPENAI_API_KEY environment variable is not set")
     
@@ -46,8 +52,8 @@ def index_documents(pdf_path, chunk_size=1000):
     )
     chunks = text_splitter.split_documents(documents)
     
-    # Create embeddings using OpenAI
-    embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
+    # Create embeddings using OpenAI (automatically uses OPENAI_API_KEY env var)
+    embeddings = OpenAIEmbeddings()
     
     # Create and populate FAISS vector store
     vectorstore = FAISS.from_documents(chunks, embeddings)
