@@ -118,8 +118,7 @@ def search_lexical(query, search_type="deputado", limit=10):
             return results
     
     finally:
-        if engine:
-            engine.dispose()
+        engine.dispose()
 
 
 def search_semantic(query_text, limit=10):
@@ -219,8 +218,7 @@ def search_semantic(query_text, limit=10):
             return results
     
     finally:
-        if engine:
-            engine.dispose()
+        engine.dispose()
 
 
 def search_graph_patterns(query_type, param_value, limit=10):
