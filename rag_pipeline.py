@@ -11,6 +11,59 @@ from langchain_openai import ChatOpenAI
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 
+def search_graph_actors(movie_title, limit=10):
+    """
+    Finds movies related to movie_title by shared actors (collaborative recommendation).
+    
+    Args:
+        movie_title: The title of the movie to find recommendations for
+        limit: Maximum number of recommendations to return (default: 10)
+        
+    Returns:
+        List of dictionaries with movieId, title, and score (count of common actors)
+    """
+    # Load environment variables
+    load_dotenv()
+    
+    # Get Neo4j connection details from environment
+    neo4j_uri = os.getenv("NEO4J_URI")
+    neo4j_user = os.getenv("NEO4J_USERNAME")
+    neo4j_password = os.getenv("NEO4J_PASSWORD")
+    
+    if not all([neo4j_uri, neo4j_user, neo4j_password]):
+        raise ValueError("Neo4j connection details not found in environment variables")
+    
+    # Create Neo4j driver
+    driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
+    
+    try:
+        with driver.session() as session:
+            # Cypher query to find movies sharing actors with the input movie
+            query = """
+            MATCH (m:Movie {title: $movie_title})<-[:ACTED_IN]-(a:Actor)
+            MATCH (a)-[:ACTED_IN]->(rec:Movie)
+            WHERE m.movieId <> rec.movieId
+            WITH rec.movieId AS movieId, rec.title AS title, COUNT(DISTINCT a) AS score
+            RETURN movieId, title, score
+            ORDER BY score DESC
+            LIMIT $limit
+            """
+            
+            result = session.run(query, movie_title=movie_title, limit=limit)
+            
+            # Convert result to list of dictionaries
+            recommendations = []
+            for record in result:
+                recommendations.append({
+                    'movieId': record['movieId'],
+                    'title': record['title'],
+                    'score': record['score']
+                })
+            
+            return recommendations
+    finally:
+        driver.close()
+
 # Load environment variables
 if __name__ == "__main__":
     # Load environment variables from .env file if needed
