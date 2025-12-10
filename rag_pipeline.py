@@ -11,6 +11,19 @@ from langchain_openai import ChatOpenAI
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 
+# RAG Prompt Template
+RAG_PROMPT_TEMPLATE = """Você é um especialista em recomendação de filmes. Sua função é ajudar os usuários a encontrar filmes que correspondam aos seus interesses e preferências.
+
+Use o contexto fornecido abaixo para responder à pergunta do usuário de forma precisa e útil. Se o contexto não contiver informações suficientes para responder à pergunta, seja honesto e indique isso ao usuário.
+
+Contexto:
+{context}
+
+Pergunta do usuário:
+{question}
+
+Resposta:"""
+
 # Load environment variables
 if __name__ == "__main__":
     # Load environment variables from .env file if needed
