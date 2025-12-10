@@ -68,6 +68,7 @@ def search_lexical(query, search_type="deputado", limit=10):
         with engine.connect() as connection:
             if search_type == "deputado":
                 # Busca por nome de deputado (case-insensitive, com LIKE)
+                # Using parameterized query to prevent SQL injection
                 sql_query = text("""
                     SELECT 
                         nome_deputado,
@@ -87,6 +88,7 @@ def search_lexical(query, search_type="deputado", limit=10):
                 )
             elif search_type == "cnpj":
                 # Busca por CNPJ do fornecedor
+                # Using parameterized query to prevent SQL injection
                 sql_query = text("""
                     SELECT 
                         nome_deputado,

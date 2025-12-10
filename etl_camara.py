@@ -9,6 +9,12 @@ import time
 from datetime import datetime
 
 
+# Configuration for API rate limiting and retries
+MAX_RETRIES = 3
+RETRY_DELAY = 2  # seconds
+REQUEST_DELAY = 0.5  # seconds between requests to avoid rate limiting
+
+
 def fetch_deputies(limit=50):
     """
     Fetch list of deputies from the Chamber of Deputies API.
@@ -22,17 +28,41 @@ def fetch_deputies(limit=50):
     url = "https://dadosabertos.camara.leg.br/api/v2/deputados"
     params = {"itens": limit, "ordem": "ASC", "ordenarPor": "nome"}
     
-    try:
-        print(f"Fetching up to {limit} deputies...")
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        deputies = data.get("dados", [])
-        print(f"Successfully fetched {len(deputies)} deputies.")
-        return deputies
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching deputies: {e}")
-        return []
+    for attempt in range(MAX_RETRIES):
+        try:
+            print(f"Fetching up to {limit} deputies... (Attempt {attempt + 1}/{MAX_RETRIES})")
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            deputies = data.get("dados", [])
+            print(f"Successfully fetched {len(deputies)} deputies.")
+            return deputies
+        except requests.exceptions.Timeout as e:
+            print(f"Timeout error on attempt {attempt + 1}: {e}")
+            if attempt < MAX_RETRIES - 1:
+                print(f"Retrying in {RETRY_DELAY} seconds...")
+                time.sleep(RETRY_DELAY)
+            else:
+                print("Max retries reached. Failed to fetch deputies.")
+                return []
+        except requests.exceptions.ConnectionError as e:
+            print(f"Connection error on attempt {attempt + 1}: {e}")
+            if attempt < MAX_RETRIES - 1:
+                print(f"Retrying in {RETRY_DELAY} seconds...")
+                time.sleep(RETRY_DELAY)
+            else:
+                print("Max retries reached. Failed to fetch deputies.")
+                return []
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching deputies on attempt {attempt + 1}: {e}")
+            if attempt < MAX_RETRIES - 1:
+                print(f"Retrying in {RETRY_DELAY} seconds...")
+                time.sleep(RETRY_DELAY)
+            else:
+                print("Max retries reached. Failed to fetch deputies.")
+                return []
+    
+    return []
 
 
 def fetch_deputy_expenses(deputy_id, year=None):
@@ -52,15 +82,33 @@ def fetch_deputy_expenses(deputy_id, year=None):
     url = f"https://dadosabertos.camara.leg.br/api/v2/deputados/{deputy_id}/despesas"
     params = {"ano": year, "ordem": "ASC", "ordenarPor": "ano"}
     
-    try:
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        expenses = data.get("dados", [])
-        return expenses
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching expenses for deputy {deputy_id}: {e}")
-        return []
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            expenses = data.get("dados", [])
+            return expenses
+        except requests.exceptions.Timeout as e:
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(RETRY_DELAY)
+            else:
+                print(f"Error fetching expenses for deputy {deputy_id} after {MAX_RETRIES} attempts: Timeout")
+                return []
+        except requests.exceptions.ConnectionError as e:
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(RETRY_DELAY)
+            else:
+                print(f"Error fetching expenses for deputy {deputy_id} after {MAX_RETRIES} attempts: Connection error")
+                return []
+        except requests.exceptions.RequestException as e:
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(RETRY_DELAY)
+            else:
+                print(f"Error fetching expenses for deputy {deputy_id}: {e}")
+                return []
+    
+    return []
 
 
 def extract_expense_fields(expense, deputy_info):
@@ -151,7 +199,8 @@ def main():
         print(f"  Found {len(expenses)} expenses for {deputy_name}")
         
         # Step 4: Add delay between requests to avoid API rate limiting
-        time.sleep(0.5)
+        # Using constant to make it configurable
+        time.sleep(REQUEST_DELAY)
     
     # Step 5: Save consolidated data to CSV
     print(f"\nTotal expenses collected: {len(all_expenses)}")

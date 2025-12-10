@@ -165,6 +165,51 @@ def create_hnsw_index(conn):
     print("HNSW index created successfully.")
 
 
+def sanitize_cnpj(cnpj_str):
+    """
+    Sanitize CNPJ by removing dots, dashes, and slashes.
+    
+    Args:
+        cnpj_str: CNPJ string (may contain formatting)
+    
+    Returns:
+        str: Sanitized CNPJ with only numbers
+    """
+    if pd.isna(cnpj_str) or not cnpj_str:
+        return ""
+    return str(cnpj_str).replace('.', '').replace('-', '').replace('/', '').strip()
+
+
+def convert_valor(valor_str):
+    """
+    Convert valor (monetary value) from string to float.
+    
+    Handles various formats including comma as decimal separator.
+    
+    Args:
+        valor_str: Value as string or number
+    
+    Returns:
+        float: Converted value
+    """
+    if pd.isna(valor_str):
+        return 0.0
+    
+    # If already numeric, return as float
+    if isinstance(valor_str, (int, float)):
+        return float(valor_str)
+    
+    # Convert string to float (handle comma as decimal separator)
+    try:
+        # Remove currency symbols and whitespace
+        valor_clean = str(valor_str).replace('R$', '').replace(' ', '').strip()
+        # Replace comma with dot for decimal
+        valor_clean = valor_clean.replace(',', '.')
+        return float(valor_clean)
+    except (ValueError, AttributeError):
+        return 0.0
+
+
 def insert_into_postgresql(df, conn, openai_client):
     """
     Insert data into PostgreSQL with embeddings.
@@ -181,6 +226,16 @@ def insert_into_postgresql(df, conn, openai_client):
         # Generate embedding for description
         embedding = generate_embedding(row.get('txtDescricao', ''), openai_client)
         
+        # Map CSV columns from ETL to database columns
+        # ETL produces: nome, siglaPartido, txtFornecedor, cnpjCpfFornecedor, vlrLiquido, datEmissao
+        deputado_nome = row.get('nome', row.get('deputado_nome', ''))
+        deputado_partido = row.get('siglaPartido', row.get('deputado_partido', ''))
+        fornecedor_nome = row.get('txtFornecedor', row.get('fornecedor_nome', ''))
+        fornecedor_cnpj = sanitize_cnpj(row.get('cnpjCpfFornecedor', row.get('fornecedor_cnpj', '')))
+        valor = convert_valor(row.get('vlrLiquido', row.get('valor', 0)))
+        data = row.get('datEmissao', row.get('data', None))
+        descricao = row.get('txtDescricao', '')
+        
         # Insert data
         cursor.execute("""
             INSERT INTO despesas 
@@ -188,13 +243,13 @@ def insert_into_postgresql(df, conn, openai_client):
              valor, data, descricao, embedding)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """, (
-            row.get('deputado_nome', ''),
-            row.get('deputado_partido', ''),
-            row.get('fornecedor_nome', ''),
-            row.get('fornecedor_cnpj', ''),
-            row.get('valor', 0),
-            row.get('data', None),
-            row.get('txtDescricao', ''),
+            deputado_nome,
+            deputado_partido,
+            fornecedor_nome,
+            fornecedor_cnpj,
+            valor,
+            data,
+            descricao,
             embedding
         ))
         
@@ -220,6 +275,20 @@ def insert_into_neo4j(df, driver):
     
     with driver.session() as session:
         for idx, row in tqdm(df.iterrows(), total=len(df), desc="Neo4j"):
+            # Map CSV columns from ETL to database columns
+            # ETL produces: nome, siglaPartido, txtFornecedor, cnpjCpfFornecedor, vlrLiquido, datEmissao
+            deputado_nome = row.get('nome', row.get('deputado_nome', ''))
+            deputado_partido = row.get('siglaPartido', row.get('deputado_partido', ''))
+            fornecedor_nome = row.get('txtFornecedor', row.get('fornecedor_nome', ''))
+            fornecedor_cnpj = sanitize_cnpj(row.get('cnpjCpfFornecedor', row.get('fornecedor_cnpj', '')))
+            valor = convert_valor(row.get('vlrLiquido', row.get('valor', 0)))
+            data = str(row.get('datEmissao', row.get('data', '')))
+            descricao = row.get('txtDescricao', '')
+            
+            # Skip if CNPJ is empty (can't create unique Fornecedor node without it)
+            if not fornecedor_cnpj:
+                continue
+            
             # Use MERGE to avoid duplicates
             query = """
             MERGE (d:Deputado {nome: $deputado_nome})
@@ -238,13 +307,13 @@ def insert_into_neo4j(df, driver):
             """
             
             session.run(query, {
-                'deputado_nome': row.get('deputado_nome', ''),
-                'deputado_partido': row.get('deputado_partido', ''),
-                'fornecedor_nome': row.get('fornecedor_nome', ''),
-                'fornecedor_cnpj': row.get('fornecedor_cnpj', ''),
-                'valor': float(row.get('valor', 0)),
-                'data': str(row.get('data', '')),
-                'descricao': row.get('txtDescricao', '')
+                'deputado_nome': deputado_nome,
+                'deputado_partido': deputado_partido,
+                'fornecedor_nome': fornecedor_nome,
+                'fornecedor_cnpj': fornecedor_cnpj,
+                'valor': valor,
+                'data': data,
+                'descricao': descricao
             })
     
     print("Neo4j data insertion completed.")
@@ -316,6 +385,7 @@ def main():
     
     # Connect to PostgreSQL
     print("\nConnecting to PostgreSQL...")
+    pg_conn = None
     try:
         pg_conn = get_postgres_connection()
         register_vector(pg_conn)
@@ -330,15 +400,19 @@ def main():
         # Create HNSW index
         create_hnsw_index(pg_conn)
         
-        pg_conn.close()
-        print("✓ PostgreSQL connection closed")
+        print("✓ PostgreSQL operations completed")
         
     except Exception as e:
         print(f"✗ PostgreSQL error: {e}")
         raise
+    finally:
+        if pg_conn:
+            pg_conn.close()
+            print("✓ PostgreSQL connection closed")
     
     # Connect to Neo4j
     print("\nConnecting to Neo4j...")
+    neo4j_driver = None
     try:
         neo4j_driver = get_neo4j_driver()
         print("✓ Connected to Neo4j")
@@ -346,12 +420,15 @@ def main():
         # Insert data into Neo4j
         insert_into_neo4j(df, neo4j_driver)
         
-        neo4j_driver.close()
-        print("✓ Neo4j connection closed")
+        print("✓ Neo4j operations completed")
         
     except Exception as e:
         print(f"✗ Neo4j error: {e}")
         raise
+    finally:
+        if neo4j_driver:
+            neo4j_driver.close()
+            print("✓ Neo4j connection closed")
     
     print("\n" + "=" * 60)
     print("Data ingestion completed successfully!")
