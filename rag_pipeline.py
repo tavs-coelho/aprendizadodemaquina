@@ -8,12 +8,37 @@ import pandas as pd
 from neo4j import GraphDatabase
 import openai
 from langchain_openai import ChatOpenAI
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langchain_openai import OpenAIEmbeddings
 from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 import chromadb
 
 
+def index_documents(pdf_path, chunk_size=1000):
+    """
+    Processes a PDF document and stores its chunks in a local vector database.
+    
+    Args:
+        pdf_path: Path to the PDF file to process
+        chunk_size: Size of text chunks for splitting (default=1000)
+    
+    Returns:
+        FAISS vector store containing the indexed document chunks
+    
+    Raises:
+        ValueError: If OPENAI_API_KEY environment variable is not set
+        FileNotFoundError: If the PDF file does not exist
+    """
+    # Validate PDF file exists
+    if not os.path.exists(pdf_path):
+        raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+    
+    # Check for OpenAI API key
 def reciprocal_rank_fusion(search_results, k=60):
     """
     Applies Reciprocal Rank Fusion (RRF) to combine multiple search results.
@@ -126,6 +151,27 @@ def search_vector_neo4j(query_text, limit=10):
     if not openai_api_key:
         raise ValueError("OPENAI_API_KEY environment variable is not set")
     
+    # Load the PDF document using PyPDFLoader
+    loader = PyPDFLoader(pdf_path)
+    documents = loader.load()
+    
+    # Split the documents into chunks using RecursiveCharacterTextSplitter
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=200,  # Add overlap to maintain context between chunks
+        length_function=len,
+    )
+    chunks = text_splitter.split_documents(documents)
+    
+    # Create embeddings using OpenAI (automatically uses OPENAI_API_KEY env var)
+    embeddings = OpenAIEmbeddings()
+    
+    # Create and populate FAISS vector store
+    vectorstore = FAISS.from_documents(chunks, embeddings)
+    
+    return vectorstore
+
+
     # Initialize OpenAI client
     client = openai.OpenAI(api_key=openai_api_key)
     
@@ -556,6 +602,110 @@ def search_document_vector(query_text, k=3):
             })
     
     return formatted_results
+def get_movie_details(movie_ids):
+    """
+    Retrieves movie details (title, plot) from Neo4j for given movie IDs.
+    
+    Args:
+        movie_ids: List of movieIds to retrieve details for
+    
+    Returns:
+        List of dictionaries containing movie details (title, plot)
+    """
+    if not movie_ids:
+        return []
+    
+    neo4j_uri = os.getenv("NEO4J_URI")
+    neo4j_username = os.getenv("NEO4J_USERNAME")
+    neo4j_password = os.getenv("NEO4J_PASSWORD")
+    
+    if not all([neo4j_uri, neo4j_username, neo4j_password]):
+        raise ValueError("Neo4j connection environment variables are not properly set")
+    
+    driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password))
+    
+    try:
+        with driver.session() as session:
+            query = """
+            MATCH (m:Movie)
+            WHERE m.movieId IN $movie_ids
+            RETURN m.title AS title, m.plot AS plot, m.movieId AS movieId
+            """
+            result = session.run(query, movie_ids=movie_ids)
+            movies = [{"title": record["title"], "plot": record["plot"], "movieId": record["movieId"]} 
+                      for record in result]
+            return movies
+    finally:
+        driver.close()
+
+
+def answer_question_with_rag(text_query, graph_seed_title):
+    """
+    Answers a question using Retrieval-Augmented Generation (RAG).
+    
+    This function:
+    1. Calls search_hybrid_neo4j to retrieve relevant movie IDs
+    2. Retrieves movie details (title, plot) from Neo4j
+    3. Formats the movie data into a context string
+    4. Uses ChatOpenAI with gpt-4o-mini model and a prompt template
+    5. Builds a LangChain chain to generate the final answer
+    
+    Args:
+        text_query: Text query string for the question
+        graph_seed_title: Title of the seed movie for graph-based search
+    
+    Returns:
+        String containing the generated answer
+    """
+    # Step 1: Call search_hybrid_neo4j to get relevant movie IDs
+    movie_ids = search_hybrid_neo4j(text_query, graph_seed_title, k=10)
+    
+    # Check if search returned any results
+    if not movie_ids:
+        return "Desculpe, não encontrei filmes relevantes para sua pergunta."
+    
+    # Step 2: Retrieve movie details for the returned IDs
+    movies = get_movie_details(movie_ids)
+    
+    # Check if movie details were retrieved
+    if not movies:
+        return "Desculpe, não consegui recuperar informações sobre os filmes encontrados."
+    
+    # Step 3: Format movie data into a context string
+    context = ""
+    for movie in movies:
+        title = movie.get("title", "Unknown")
+        plot = movie.get("plot", "No plot available")
+        context += f"Título: {title}\nEnredo: {plot}\n\n"
+    
+    # Step 4: Create prompt template for RAG
+    prompt_template = PromptTemplate(
+        input_variables=["context", "question"],
+        template="""Você é um assistente especializado em filmes. Use o contexto fornecido abaixo para responder à pergunta do usuário de forma precisa e informativa.
+
+Contexto dos filmes:
+{context}
+
+Pergunta: {question}
+
+Resposta:"""
+    )
+    
+    # Step 5: Initialize ChatOpenAI with gpt-4o-mini model
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    if not openai_api_key:
+        raise ValueError("OPENAI_API_KEY environment variable is not set")
+    
+    llm = ChatOpenAI(model='gpt-4o-mini', temperature=0.7, openai_api_key=openai_api_key)
+    
+    # Step 6: Build LangChain chain using LCEL (LangChain Expression Language)
+    output_parser = StrOutputParser()
+    chain = prompt_template | llm | output_parser
+    
+    # Step 7: Generate and return final answer
+    response = chain.invoke({"context": context, "question": text_query})
+    
+    return response
 
 
 # Load environment variables
