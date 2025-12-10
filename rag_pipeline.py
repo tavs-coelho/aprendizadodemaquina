@@ -479,19 +479,66 @@ def search_graph_neo4j(graph_seed_title, k=10):
         driver.close()
 
 
-def search_hybrid_neo4j(text_query, graph_seed_title, k=10):
+def search_document_vector(text_query, k=10):
     """
-    Performs hybrid search combining lexical, vectorial, and graph-based searches.
+    Performs document vector similarity search in Neo4j.
     
     Args:
-        text_query: Text query string for lexical and vectorial search
+        text_query: Text query string
+        k: Number of results to return (default=10)
+    
+    Returns:
+        List of movieIds
+    """
+    neo4j_uri = os.getenv("NEO4J_URI")
+    neo4j_username = os.getenv("NEO4J_USERNAME")
+    neo4j_password = os.getenv("NEO4J_PASSWORD")
+    
+    if not all([neo4j_uri, neo4j_username, neo4j_password]):
+        raise ValueError("Neo4j environment variables (NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD) must be set")
+    
+    driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password))
+    
+    try:
+        # Get embedding for query using OpenAI
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        if not openai_api_key:
+            raise ValueError("OPENAI_API_KEY environment variable is not set")
+        
+        client = openai.OpenAI(api_key=openai_api_key)
+        
+        response = client.embeddings.create(
+            model="text-embedding-3-small",
+            input=text_query
+        )
+        query_embedding = response.data[0].embedding
+        
+        with driver.session() as session:
+            query = """
+            CALL db.index.vector.queryNodes('documentVectorIndex', $k, $embedding)
+            YIELD node, score
+            RETURN node.movieId AS movieId
+            """
+            result = session.run(query, k=k, embedding=query_embedding)
+            movie_ids = [record["movieId"] for record in result]
+            return movie_ids
+    finally:
+        driver.close()
+
+
+def search_hybrid_neo4j(text_query, graph_seed_title, k=10):
+    """
+    Performs hybrid search combining lexical, vectorial, graph-based, and document vector searches.
+    
+    Args:
+        text_query: Text query string for lexical, vectorial, and document vector search
         graph_seed_title: Title of the seed movie for graph-based search
         k: Number of results to return from each search method (default=10)
     
     Returns:
         List of movieIds sorted by fused ranking score
     """
-    # Call the three search functions with error handling
+    # Call the four search functions with error handling
     ranked_lists = []
     
     try:
@@ -511,6 +558,12 @@ def search_hybrid_neo4j(text_query, graph_seed_title, k=10):
         ranked_lists.append(graph_results)
     except Exception as e:
         print(f"Warning: Graph search failed: {e}")
+    
+    try:
+        document_results = search_document_vector(text_query, k)
+        ranked_lists.append(document_results)
+    except Exception as e:
+        print(f"Warning: Document vector search failed: {e}")
     
     # Combine results using reciprocal rank fusion
     fused_ranking = reciprocal_rank_fusion(ranked_lists)
