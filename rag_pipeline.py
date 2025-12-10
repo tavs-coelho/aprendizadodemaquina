@@ -193,9 +193,15 @@ def get_movie_details(movie_ids):
     Returns:
         List of dictionaries containing movie details (title, plot)
     """
+    if not movie_ids:
+        return []
+    
     neo4j_uri = os.getenv("NEO4J_URI")
     neo4j_username = os.getenv("NEO4J_USERNAME")
     neo4j_password = os.getenv("NEO4J_PASSWORD")
+    
+    if not all([neo4j_uri, neo4j_username, neo4j_password]):
+        raise ValueError("Neo4j connection environment variables are not properly set")
     
     driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password))
     
@@ -235,8 +241,16 @@ def answer_question_with_rag(text_query, graph_seed_title):
     # Step 1: Call search_hybrid_neo4j to get relevant movie IDs
     movie_ids = search_hybrid_neo4j(text_query, graph_seed_title, k=10)
     
+    # Check if search returned any results
+    if not movie_ids:
+        return "Desculpe, não encontrei filmes relevantes para sua pergunta."
+    
     # Step 2: Retrieve movie details for the returned IDs
     movies = get_movie_details(movie_ids)
+    
+    # Check if movie details were retrieved
+    if not movies:
+        return "Desculpe, não consegui recuperar informações sobre os filmes encontrados."
     
     # Step 3: Format movie data into a context string
     context = ""
@@ -259,7 +273,11 @@ Resposta:"""
     )
     
     # Step 5: Initialize ChatOpenAI with gpt-4o-mini model
-    llm = ChatOpenAI(model='gpt-4o-mini', temperature=0.7)
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    if not openai_api_key:
+        raise ValueError("OPENAI_API_KEY environment variable is not set")
+    
+    llm = ChatOpenAI(model='gpt-4o-mini', temperature=0.7, openai_api_key=openai_api_key)
     
     # Step 6: Build LangChain chain using LCEL (LangChain Expression Language)
     output_parser = StrOutputParser()
