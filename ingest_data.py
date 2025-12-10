@@ -125,7 +125,11 @@ def setup_postgresql_table(conn):
     cursor.execute("DROP TABLE IF EXISTS despesas_parlamentares;")
     
     # Create table with text and embedding columns
-    # Note: Column names match what auditor_ai.py expects
+    # CRITICAL: Column names must exactly match what auditor_ai.py queries expect:
+    # - nome_deputado (not deputado_nome) for lexical search by deputy name
+    # - cnpj_fornecedor for lexical search by CNPJ and graph pattern analysis
+    # - descricao_despesa for semantic/vector search using pgvector
+    # - descricao_embedding (vector) for similarity search operations
     cursor.execute(f"""
         CREATE TABLE despesas_parlamentares (
             id SERIAL PRIMARY KEY,
@@ -210,6 +214,31 @@ def convert_valor(valor_str):
         return 0.0
 
 
+def map_csv_columns(row):
+    """
+    Map CSV columns from ETL output to database column names.
+    
+    ETL produces columns: nome, siglaPartido, txtFornecedor, cnpjCpfFornecedor, vlrLiquido, datEmissao, txtDescricao
+    Database expects: deputado_nome, fornecedor_nome, fornecedor_cnpj, valor, data, descricao
+    
+    This function supports both formats to maintain compatibility.
+    
+    Args:
+        row: DataFrame row with either ETL format or database format columns
+    
+    Returns:
+        dict: Mapped column values
+    """
+    return {
+        'deputado_nome': row.get('nome', row.get('deputado_nome', '')),
+        'fornecedor_nome': row.get('txtFornecedor', row.get('fornecedor_nome', '')),
+        'fornecedor_cnpj': sanitize_cnpj(row.get('cnpjCpfFornecedor', row.get('fornecedor_cnpj', ''))),
+        'valor': convert_valor(row.get('vlrLiquido', row.get('valor', 0))),
+        'data': row.get('datEmissao', row.get('data', None)),
+        'descricao': row.get('txtDescricao', '')
+    }
+
+
 def insert_into_postgresql(df, conn, openai_client):
     """
     Insert data into PostgreSQL with embeddings.
@@ -223,17 +252,11 @@ def insert_into_postgresql(df, conn, openai_client):
     
     print("\nInserting data into PostgreSQL...")
     for idx, row in tqdm(df.iterrows(), total=len(df), desc="PostgreSQL"):
-        # Generate embedding for description
-        embedding = generate_embedding(row.get('txtDescricao', ''), openai_client)
+        # Map columns from CSV format to database format
+        mapped = map_csv_columns(row)
         
-        # Map CSV columns from ETL to database columns
-        # ETL produces: nome, siglaPartido, txtFornecedor, cnpjCpfFornecedor, vlrLiquido, datEmissao
-        deputado_nome = row.get('nome', row.get('deputado_nome', ''))
-        fornecedor_nome = row.get('txtFornecedor', row.get('fornecedor_nome', ''))
-        fornecedor_cnpj = sanitize_cnpj(row.get('cnpjCpfFornecedor', row.get('fornecedor_cnpj', '')))
-        valor = convert_valor(row.get('vlrLiquido', row.get('valor', 0)))
-        data = row.get('datEmissao', row.get('data', None))
-        descricao = row.get('txtDescricao', '')
+        # Generate embedding for description
+        embedding = generate_embedding(mapped['descricao'], openai_client)
         
         # Insert data with column names matching auditor_ai.py expectations
         cursor.execute("""
@@ -242,12 +265,12 @@ def insert_into_postgresql(df, conn, openai_client):
              descricao_despesa, valor, data_despesa, descricao_embedding)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (
-            deputado_nome,
-            fornecedor_cnpj,
-            fornecedor_nome,
-            descricao,
-            valor,
-            data,
+            mapped['deputado_nome'],
+            mapped['fornecedor_cnpj'],
+            mapped['fornecedor_nome'],
+            mapped['descricao'],
+            mapped['valor'],
+            mapped['data'],
             embedding
         ))
         
@@ -273,21 +296,15 @@ def insert_into_neo4j(df, driver):
     
     with driver.session() as session:
         for idx, row in tqdm(df.iterrows(), total=len(df), desc="Neo4j"):
-            # Map CSV columns from ETL to database columns
-            # ETL produces: nome, siglaPartido, txtFornecedor, cnpjCpfFornecedor, vlrLiquido, datEmissao
-            deputado_nome = row.get('nome', row.get('deputado_nome', ''))
-            deputado_partido = row.get('siglaPartido', row.get('deputado_partido', ''))
-            fornecedor_nome = row.get('txtFornecedor', row.get('fornecedor_nome', ''))
-            fornecedor_cnpj = sanitize_cnpj(row.get('cnpjCpfFornecedor', row.get('fornecedor_cnpj', '')))
-            valor = convert_valor(row.get('vlrLiquido', row.get('valor', 0)))
-            data = str(row.get('datEmissao', row.get('data', '')))
-            descricao = row.get('txtDescricao', '')
+            # Map columns from CSV format to database format
+            mapped = map_csv_columns(row)
             
             # Skip if CNPJ is empty (can't create unique Fornecedor node without it)
-            if not fornecedor_cnpj:
+            if not mapped['fornecedor_cnpj']:
                 continue
             
             # Use MERGE to avoid duplicates
+            # Uses parameterized queries ($param) to prevent Cypher injection
             query = """
             MERGE (d:Deputado {nome: $deputado_nome})
             ON CREATE SET d.partido = $deputado_partido
@@ -304,14 +321,17 @@ def insert_into_neo4j(df, driver):
             }]->(f)
             """
             
+            # Note: deputado_partido is not in our mapped columns, but we keep for compatibility
+            deputado_partido = row.get('siglaPartido', row.get('deputado_partido', ''))
+            
             session.run(query, {
-                'deputado_nome': deputado_nome,
+                'deputado_nome': mapped['deputado_nome'],
                 'deputado_partido': deputado_partido,
-                'fornecedor_nome': fornecedor_nome,
-                'fornecedor_cnpj': fornecedor_cnpj,
-                'valor': valor,
-                'data': data,
-                'descricao': descricao
+                'fornecedor_nome': mapped['fornecedor_nome'],
+                'fornecedor_cnpj': mapped['fornecedor_cnpj'],
+                'valor': mapped['valor'],
+                'data': str(mapped['data']),
+                'descricao': mapped['descricao']
             })
     
     print("Neo4j data insertion completed.")

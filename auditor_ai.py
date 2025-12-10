@@ -68,7 +68,8 @@ def search_lexical(query, search_type="deputado", limit=10):
         with engine.connect() as connection:
             if search_type == "deputado":
                 # Busca por nome de deputado (case-insensitive, com LIKE)
-                # Using parameterized query to prevent SQL injection
+                # SECURITY: Uses SQLAlchemy text() with parameterized query (:query, :limit)
+                # to prevent SQL injection. All SQL queries in this file follow this pattern.
                 sql_query = text("""
                     SELECT 
                         nome_deputado,
@@ -88,7 +89,7 @@ def search_lexical(query, search_type="deputado", limit=10):
                 )
             elif search_type == "cnpj":
                 # Busca por CNPJ do fornecedor
-                # Using parameterized query to prevent SQL injection
+                # SECURITY: Uses SQLAlchemy text() with parameterized query (:query, :limit)
                 sql_query = text("""
                     SELECT 
                         nome_deputado,
