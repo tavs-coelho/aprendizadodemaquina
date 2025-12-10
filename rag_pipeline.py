@@ -11,6 +11,9 @@ from langchain_openai import ChatOpenAI
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 
+# Load environment variables at module level
+load_dotenv()
+
 
 def search_vector_neo4j(query_text, limit=10):
     """
@@ -23,9 +26,6 @@ def search_vector_neo4j(query_text, limit=10):
     Returns:
         list: List of nodes with similarity scores from Neo4j
     """
-    # Load environment variables
-    load_dotenv()
-    
     # Get OpenAI API key
     openai_api_key = os.getenv("OPENAI_API_KEY")
     if not openai_api_key:
@@ -50,9 +50,7 @@ def search_vector_neo4j(query_text, limit=10):
         raise ValueError("Neo4j environment variables (NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD) must be set")
     
     # Connect to Neo4j and query the vector index
-    driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password))
-    
-    try:
+    with GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password)) as driver:
         with driver.session() as session:
             # Query the movieVectorIndex using cosine similarity
             result = session.run(
@@ -74,8 +72,6 @@ def search_vector_neo4j(query_text, limit=10):
                 })
             
             return results
-    finally:
-        driver.close()
 
 # Load environment variables
 if __name__ == "__main__":
