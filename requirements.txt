@@ -2,6 +2,7 @@
 langchain>=0.1.0
 langchain-openai>=0.0.2
 langchain-community>=0.3.27
+langchain-text-splitters>=0.0.1
 
 # OpenAI API
 openai>=1.0.0
@@ -20,6 +21,10 @@ sqlalchemy>=2.0.0
 # Vector store support (often needed for RAG)
 chromadb>=0.4.0
 tiktoken>=0.5.0
+faiss-cpu>=1.7.0
+
+# PDF processing
+pypdf>=3.0.0
 
 # Additional useful packages for RAG pipelines
 python-dotenv>=1.0.0

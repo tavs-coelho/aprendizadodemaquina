@@ -8,8 +8,51 @@ import pandas as pd
 from neo4j import GraphDatabase
 import openai
 from langchain_openai import ChatOpenAI
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langchain_openai import OpenAIEmbeddings
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
+
+
+def index_documents(pdf_path, chunk_size=1000):
+    """
+    Processes a PDF document and stores its chunks in a local vector database.
+    
+    Args:
+        pdf_path: Path to the PDF file to process
+        chunk_size: Size of text chunks for splitting (default=1000)
+    
+    Returns:
+        FAISS vector store containing the indexed document chunks
+    """
+    # Load environment variables
+    load_dotenv()
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    
+    if not openai_api_key:
+        raise ValueError("OPENAI_API_KEY environment variable is not set")
+    
+    # Load the PDF document using PyPDFLoader
+    loader = PyPDFLoader(pdf_path)
+    documents = loader.load()
+    
+    # Split the documents into chunks using RecursiveCharacterTextSplitter
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=200,  # Add overlap to maintain context between chunks
+        length_function=len,
+    )
+    chunks = text_splitter.split_documents(documents)
+    
+    # Create embeddings using OpenAI
+    embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
+    
+    # Create and populate FAISS vector store
+    vectorstore = FAISS.from_documents(chunks, embeddings)
+    
+    return vectorstore
 
 
 def reciprocal_rank_fusion(ranked_lists, k=60):
