@@ -109,7 +109,7 @@ def generate_embedding(text, client):
 
 def setup_postgresql_table(conn):
     """
-    Create the despesas table in PostgreSQL with pgvector extension.
+    Create the despesas_parlamentares table in PostgreSQL with pgvector extension.
     
     Args:
         conn: psycopg2 connection object
@@ -121,21 +121,21 @@ def setup_postgresql_table(conn):
     cursor.execute("CREATE EXTENSION IF NOT EXISTS vector;")
     
     # Drop table if exists (for clean setup)
-    print("Creating despesas table...")
-    cursor.execute("DROP TABLE IF EXISTS despesas;")
+    print("Creating despesas_parlamentares table...")
+    cursor.execute("DROP TABLE IF EXISTS despesas_parlamentares;")
     
-    # Create table with text and embedding columns
+    # Create table with text and embedding columns (matching auditor_ai.py expectations)
     cursor.execute(f"""
-        CREATE TABLE despesas (
+        CREATE TABLE despesas_parlamentares (
             id SERIAL PRIMARY KEY,
-            deputado_nome TEXT,
-            deputado_partido TEXT,
-            fornecedor_nome TEXT,
-            fornecedor_cnpj TEXT,
+            nome_deputado TEXT,
+            partido_deputado TEXT,
+            nome_fornecedor TEXT,
+            cnpj_fornecedor TEXT,
             valor NUMERIC,
-            data DATE,
-            descricao TEXT,
-            embedding vector({EMBEDDING_DIMENSION})
+            data_despesa DATE,
+            descricao_despesa TEXT,
+            descricao_embedding vector({EMBEDDING_DIMENSION})
         );
     """)
     
@@ -156,8 +156,8 @@ def create_hnsw_index(conn):
     print("Creating HNSW index for vector search...")
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS despesas_embedding_idx 
-        ON despesas 
-        USING hnsw (embedding vector_cosine_ops);
+        ON despesas_parlamentares 
+        USING hnsw (descricao_embedding vector_cosine_ops);
     """)
     
     conn.commit()
@@ -181,11 +181,11 @@ def insert_into_postgresql(df, conn, openai_client):
         # Generate embedding for description
         embedding = generate_embedding(row.get('txtDescricao', ''), openai_client)
         
-        # Insert data (matching ETL output columns)
+        # Insert data (matching auditor_ai.py expectations)
         cursor.execute("""
-            INSERT INTO despesas 
-            (deputado_nome, deputado_partido, fornecedor_nome, fornecedor_cnpj, 
-             valor, data, descricao, embedding)
+            INSERT INTO despesas_parlamentares 
+            (nome_deputado, partido_deputado, nome_fornecedor, cnpj_fornecedor, 
+             valor, data_despesa, descricao_despesa, descricao_embedding)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             row.get('nome', ''),  # ETL outputs 'nome'
@@ -358,7 +358,7 @@ def main():
     print("=" * 60)
     print(f"\nSummary:")
     print(f"  - Records processed: {len(df)}")
-    print(f"  - PostgreSQL: Table 'despesas' populated with embeddings")
+    print(f"  - PostgreSQL: Table 'despesas_parlamentares' populated with embeddings")
     print(f"  - Neo4j: Nodes and relationships created")
     print("=" * 60)
 
