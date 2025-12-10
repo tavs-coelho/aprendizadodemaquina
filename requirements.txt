@@ -12,6 +12,7 @@ neo4j>=5.0.0
 
 # PostgreSQL database driver
 psycopg2-binary>=2.9.0
+pgvector>=0.2.0
 
 # Data processing and utilities
 pandas>=2.0.0
