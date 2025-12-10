@@ -447,11 +447,17 @@ def search_document_vector(text_query, k=10):
     neo4j_username = os.getenv("NEO4J_USERNAME")
     neo4j_password = os.getenv("NEO4J_PASSWORD")
     
+    if not all([neo4j_uri, neo4j_username, neo4j_password]):
+        raise ValueError("Neo4j environment variables (NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD) must be set")
+    
     driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password))
     
     try:
         # Get embedding for query using OpenAI
         openai_api_key = os.getenv("OPENAI_API_KEY")
+        if not openai_api_key:
+            raise ValueError("OPENAI_API_KEY environment variable is not set")
+        
         client = openai.OpenAI(api_key=openai_api_key)
         
         response = client.embeddings.create(
