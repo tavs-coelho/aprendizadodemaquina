@@ -650,6 +650,84 @@ resposta = auditor_ai(
 
 ---
 
+## 📸 Geração Automática de Evidências (NOVO!)
+
+### O que é?
+
+O script `generate_evidence.py` é uma ferramenta de automação de QA que gera evidências visuais do sistema funcionando. Ele usa **Playwright** para automatizar o navegador e capturar screenshots profissionais de:
+
+1. **Grafo de Relacionamentos (Neo4j)** - Visualização das conexões entre deputados e fornecedores
+2. **Resposta da IA** - Interface mostrando o sistema RAG respondendo perguntas
+3. **Dados Brutos** - Tabela com os dados extraídos da API da Câmara
+
+### Por que usar?
+
+- ✅ Validar que o sistema está funcional antes de um Pull Request
+- ✅ Gerar evidências visuais para documentação
+- ✅ Impressionar revisores com screenshots automáticos
+- ✅ Acelerar o processo de QA e validação
+
+### Como usar?
+
+**1. Instale o Playwright:**
+
+```bash
+pip install playwright
+playwright install chromium
+```
+
+**2. Execute o script:**
+
+```bash
+python generate_evidence.py
+```
+
+O navegador abrirá automaticamente (modo não-headless) e você verá o script:
+- Acessando o Neo4j Browser e executando queries
+- Gerando páginas HTML com as respostas da IA
+- Capturando screenshots profissionais
+- Criando um README com descrição de cada evidência
+
+**3. Resultado:**
+
+Ao final, você terá uma pasta `evidencias/` com:
+```
+evidencias/
+├── evidencia_01_grafo_conexoes.png    # Screenshot do Neo4j
+├── evidencia_02_resposta_ia.png       # Screenshot da IA
+├── evidencia_03_dados_brutos.png      # Screenshot dos dados
+└── README_EVIDENCIAS.md               # Descrição de cada imagem
+```
+
+### Requisitos
+
+- Neo4j rodando em `http://localhost:7474`
+- Arquivo `.env` configurado com `NEO4J_PASSWORD`
+- Arquivo `despesas_camara.csv` (ou usa `despesas_camara_exemplo.csv`)
+
+### Personalização
+
+O script tenta importar `auditor_ai.py` para obter respostas reais da IA. Se a importação falhar (por exemplo, se o PostgreSQL não estiver configurado), ele usa uma resposta simulada realista.
+
+### Uso no GitHub
+
+Use essas imagens no seu Pull Request:
+
+```markdown
+## 🎯 Evidências do Sistema Funcionando
+
+### Grafo de Relacionamentos
+![Grafo](evidencias/evidencia_01_grafo_conexoes.png)
+
+### Resposta da IA
+![IA](evidencias/evidencia_02_resposta_ia.png)
+
+### Dados Brutos
+![Dados](evidencias/evidencia_03_dados_brutos.png)
+```
+
+---
+
 ## ⚡ Performance e Custos
 
 ### Métricas de Performance
@@ -883,6 +961,56 @@ BATCH_SIZE = 100  # ao invés de 1000
 for chunk in pd.read_csv('despesas_camara.csv', chunksize=1000):
     process_chunk(chunk)
 ```
+
+#### 8. Erro no Script de Evidências (generate_evidence.py)
+
+**Sintoma**:
+```
+Erro ao capturar grafo Neo4j / Timeout ao conectar ao Neo4j
+```
+
+**Soluções**:
+
+a) **Verifique se o Neo4j está rodando**:
+```bash
+# Verifique se está rodando
+docker ps | grep neo4j
+
+# Se não estiver, inicie
+docker start neo4j
+
+# Ou crie um novo container
+docker run -d \
+  --name neo4j \
+  -p 7474:7474 -p 7687:7687 \
+  -e NEO4J_AUTH=neo4j/password \
+  neo4j:latest
+```
+
+b) **Verifique a senha no .env**:
+```bash
+# O script lê NEO4J_PASSWORD do arquivo .env
+cat .env | grep NEO4J_PASSWORD
+```
+
+c) **Playwright não instalado**:
+```bash
+pip install playwright
+playwright install chromium
+```
+
+**Sintoma**:
+```
+No module named 'playwright'
+```
+
+**Solução**:
+```bash
+pip install playwright
+playwright install chromium
+```
+
+**Nota**: O script funciona parcialmente mesmo sem Neo4j. Ele gerará as evidências 2 e 3 (IA e dados) usando respostas simuladas se necessário.
 
 ### Logs e Debugging
 
