@@ -115,7 +115,9 @@ def capture_neo4j_graph(page, evidence_dir):
                     
                     # Digitar a query
                     query = "MATCH (d:Deputado)-[r:PAGOU]->(f:Fornecedor) RETURN d, r, f LIMIT 25"
-                    page.keyboard.type(query, delay=30)
+                    # Typing delay in milliseconds for realistic typing simulation
+                    TYPING_DELAY_MS = 30
+                    page.keyboard.type(query, delay=TYPING_DELAY_MS)
                     query_entered = True
                     print(f"→ Query digitada: {query}")
                     break
@@ -169,7 +171,10 @@ def capture_neo4j_graph(page, evidence_dir):
         
     except PlaywrightTimeoutError:
         print("✗ ERRO: Timeout ao conectar ao Neo4j")
-        print("  Verifique se o Neo4j está rodando em http://localhost:7474")
+        print("  Verifique se o Neo4j está rodando:")
+        print("  → docker ps | grep neo4j")
+        print("  → docker start neo4j  (se já existe)")
+        print("  → curl http://localhost:7474  (testar conexão)")
         raise
     except Exception as e:
         print(f"✗ ERRO ao capturar grafo Neo4j: {e}")
@@ -411,8 +416,9 @@ def generate_data_table_html(evidence_dir):
     
     if df is None:
         raise FileNotFoundError(
-            "Nenhum arquivo CSV encontrado. Execute 'python etl_camara.py' primeiro "
-            "ou use o arquivo de exemplo."
+            "Nenhum arquivo CSV encontrado (despesas_camara.csv ou despesas_camara_exemplo.csv). "
+            "Execute 'python etl_camara.py' primeiro para gerar dados reais "
+            "ou verifique se o arquivo de exemplo existe no diretório."
         )
     
     # Pegar primeiras 10 linhas
@@ -529,7 +535,7 @@ def generate_data_table_html(evidence_dir):
             <strong>👁️ Mostrando:</strong> Primeiras 10 linhas
         </div>
         
-        {df_display.to_html(index=False, classes='data-table', escape=False, border=0)}
+        {df_display.to_html(index=False, classes='data-table', escape=True, border=0)}
         
         <div class="footer">
             Sistema desenvolvido por Tavs Coelho - UFG<br>
