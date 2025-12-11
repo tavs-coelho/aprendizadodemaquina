@@ -40,7 +40,7 @@ Curso: Aprendizado de Máquina
 import requests
 import csv
 import time
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from datetime import datetime
 
 
@@ -51,7 +51,7 @@ RETRY_DELAY = 2  # Segundos entre retentativas
 REQUEST_DELAY = 0.5  # Segundos entre requisições (previne rate limiting)
 
 
-def fetch_deputies(limit: int = 50) -> List[Dict]:
+def fetch_deputies(limit: int = 50) -> List[Dict[str, Any]]:
     """
     Busca lista de deputados da API da Câmara dos Deputados.
     

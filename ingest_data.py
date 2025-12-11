@@ -199,7 +199,7 @@ def create_hnsw_index(conn):
     print("HNSW index created successfully.")
 
 
-def sanitize_cnpj(cnpj_str) -> str:
+def sanitize_cnpj(cnpj_str: Optional[str]) -> str:
     """
     Sanitiza CNPJ removendo pontuação e espaços.
     
