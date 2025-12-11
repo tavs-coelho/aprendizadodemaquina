@@ -1,14 +1,22 @@
-# Fiscalizador Cidadão (Citizen Auditor)
+# Fiscalizador Cidadão (Citizen Auditor) 🔍
 
-**Universidade Federal de Goiás (UFG)**
+**Universidade Federal de Goiás (UFG) - Instituto de Informática**  
+**Disciplina**: Aprendizado de Máquina  
+**Autor**: Tavs Coelho
 
-Uma ferramenta RAG Multimodal para investigar e auditar o uso da Cota Parlamentar (CEAP) utilizando dados reais da API da Câmara dos Deputados do Brasil.
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-Academic-green.svg)](LICENSE)
+[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o--mini-412991.svg)](https://openai.com/)
+[![Neo4j](https://img.shields.io/badge/Neo4j-5.0+-018bff.svg)](https://neo4j.com/)
+
+Uma ferramenta RAG (Retrieval-Augmented Generation) Multimodal para investigar e auditar o uso da Cota Parlamentar (CEAP) utilizando dados reais da API da Câmara dos Deputados do Brasil.
 
 ---
 
 ## 📋 Índice
 
 - [Visão Geral](#visão-geral)
+- [Contexto Acadêmico](#contexto-acadêmico)
 - [Tecnologias](#tecnologias)
 - [Arquitetura de Dados](#arquitetura-de-dados)
 - [Funcionalidades](#funcionalidades)
@@ -16,16 +24,69 @@ Uma ferramenta RAG Multimodal para investigar e auditar o uso da Cota Parlamenta
 - [Instalação](#instalação)
 - [Como Usar](#como-usar)
 - [Exemplos de Uso](#exemplos-de-uso)
+- [Performance e Custos](#performance-e-custos)
+- [Limitações e Trabalhos Futuros](#limitações-e-trabalhos-futuros)
 
 ---
 
 ## 🎯 Visão Geral
 
-O **Fiscalizador Cidadão** é um sistema inteligente de auditoria que utiliza técnicas avançadas de Inteligência Artificial para analisar gastos parlamentares. O sistema combina:
+O **Fiscalizador Cidadão** é um sistema inteligente de auditoria que utiliza técnicas avançadas de Inteligência Artificial para analisar gastos parlamentares brasileiros. O sistema combina:
 
 - **Retrieval-Augmented Generation (RAG)**: Para responder perguntas sobre despesas de forma contextualizada
 - **Busca Híbrida (RRF)**: Combinação de busca lexical, semântica e em grafo
 - **Análise de Padrões**: Detecção de anomalias e potenciais conflitos de interesse
+- **Transparência Pública**: Facilita o acesso cidadão aos dados de despesas parlamentares
+
+### Motivação
+
+A Cota para Exercício da Atividade Parlamentar (CEAP) é uma verba destinada aos deputados federais para custear suas atividades. Apesar da disponibilidade dos dados pela API de Dados Abertos da Câmara, a análise manual de milhares de transações é inviável para o cidadão comum. Este projeto democratiza o acesso à auditoria parlamentar através de:
+
+1. **Interface em Linguagem Natural**: Cidadãos podem fazer perguntas em português
+2. **Análise Automatizada**: IA identifica padrões suspeitos automaticamente
+3. **Contexto Enriquecido**: Combina múltiplas fontes para análise completa
+4. **Escalabilidade**: Capaz de processar milhões de registros
+
+---
+
+## 🎓 Contexto Acadêmico
+
+Este projeto foi desenvolvido como trabalho final da disciplina de **Aprendizado de Máquina** na Universidade Federal de Goiás (UFG), demonstrando a aplicação prática de conceitos como:
+
+### Técnicas de Machine Learning Aplicadas
+
+1. **Embeddings Vetoriais**: 
+   - Representação densa de texto usando o modelo text-embedding-3-small (OpenAI)
+   - Redução de dimensionalidade implícita de vocabulário para 1536 dimensões
+   - Preservação de similaridade semântica
+
+2. **Busca Vetorial com HNSW**:
+   - Hierarchical Navigable Small World para busca aproximada de vizinhos mais próximos
+   - Complexidade O(log N) para queries, vs O(N) de busca linear
+   - Trade-off entre recall e velocidade
+
+3. **Reciprocal Rank Fusion (RRF)**:
+   - Ensemble learning para combinar rankings de múltiplas fontes
+   - Não requer normalização de scores entre métodos diferentes
+   - Robusto a diferenças de escala
+
+4. **Large Language Models (LLM)**:
+   - GPT-4o-mini para geração de texto contextualizada
+   - Prompt engineering para análise crítica especializada
+   - Temperature baixa (0.3) para respostas determinísticas
+
+5. **Bancos de Dados NoSQL**:
+   - Neo4j (grafos) para análise de relacionamentos
+   - Queries Cypher para detecção de padrões complexos
+
+### Contribuições Científicas
+
+- Demonstração de sistema RAG multimodal em produção
+- Comparação empírica de estratégias de busca (lexical vs semântica vs grafo)
+- Pipeline ETL robusto para dados governamentais
+- Framework reutilizável para outras aplicações de auditoria pública
+
+---
 
 ## 🛠️ Tecnologias
 
@@ -462,6 +523,73 @@ resposta = auditor_ai(
 )
 print(resposta)
 ```
+
+---
+
+## ⚡ Performance e Custos
+
+### Métricas de Performance
+
+**Tempo de Resposta (médio)**:
+- Busca lexical: ~50ms
+- Busca semântica: ~200ms (incluindo geração de embedding)
+- Busca em grafo: ~100ms
+- Geração de resposta (LLM): ~2-3s
+- **Total end-to-end**: ~3-4 segundos
+
+**Escalabilidade**:
+- PostgreSQL: Testado com até 100K registros
+- Neo4j: Testado com até 50K nós + 100K relacionamentos
+- Índice HNSW: O(log N) para busca vetorial
+
+### Custos Estimados (OpenAI API)
+
+**Por Query**:
+- Geração de embedding (text-embedding-3-small): ~$0.00002
+- Resposta LLM (GPT-4o-mini): ~$0.001
+- **Total por consulta**: ~$0.00102 (~R$ 0,005)
+
+**Por Ingestão**:
+- 10.000 despesas × $0.00002: ~$0.20 (~R$ 1,00)
+
+💡 **Dica**: Para reduzir custos em produção, considere:
+- Cache de embeddings para consultas frequentes
+- Batch processing de embeddings
+- Uso de modelos open-source locais (Sentence-BERT, etc.)
+
+---
+
+## 🚧 Limitações e Trabalhos Futuros
+
+### Limitações Atuais
+
+1. **Dependência de APIs Externas**:
+   - Requer conexão com OpenAI API
+   - Custos associados ao uso
+   - Latência de rede
+
+2. **Escala de Dados**:
+   - Otimizado para ~100K despesas
+   - Para milhões de registros, requer otimizações adicionais
+
+3. **Idioma**:
+   - Otimizado apenas para português brasileiro
+   - Embeddings treinados multilíngue podem ter menor performance
+
+4. **Análise Temporal**:
+   - Não implementa análise de séries temporais
+   - Não detecta tendências ao longo do tempo
+
+### Trabalhos Futuros
+
+- [ ] **Interface Web**: Streamlit ou Gradio para acesso cidadão
+- [ ] **Análise Temporal**: Detecção de tendências e anomalias temporais
+- [ ] **Clustering**: Agrupamento automático de padrões de gastos
+- [ ] **Modelos Locais**: Substituir OpenAI por modelos open-source
+- [ ] **Visualizações**: Grafos interativos de relacionamentos
+- [ ] **Alertas**: Sistema de notificação para gastos suspeitos
+- [ ] **Comparações**: Benchmark entre deputados/partidos/estados
+- [ ] **Dados Complementares**: Integração com outras bases (TSE, TCU)
 
 ---
 

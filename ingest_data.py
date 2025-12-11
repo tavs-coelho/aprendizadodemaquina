@@ -1,23 +1,53 @@
 """
-Ingest Data Script for Despesas da Câmara
-Reads despesas_camara.csv and populates Neo4j and PostgreSQL databases.
+Script de Ingestão de Dados - Fiscalizador Cidadão
+==================================================
+
+Este módulo processa dados de despesas parlamentares e popula dois bancos
+de dados especializados para suportar busca multimodal.
+
+Arquitetura de Dados:
+--------------------
+
+1. **PostgreSQL + pgvector**: Busca lexical e semântica
+   - Tabela: despesas_parlamentares
+   - Colunas textuais: nome_deputado, cnpj_fornecedor, descricao_despesa
+   - Coluna vetorial: descricao_embedding (1536 dimensões)
+   - Índice: HNSW para busca vetorial rápida
+
+2. **Neo4j**: Busca de padrões e relações
+   - Nós: (:Deputado), (:Fornecedor)
+   - Relações: (Deputado)-[:PAGOU {valor, data, descricao}]->(Fornecedor)
+   - Permite queries complexas de grafos
+
+Pipeline de Ingestão:
+--------------------
+1. Leitura do CSV gerado pelo ETL
+2. Limpeza e normalização de dados (CNPJ, valores monetários)
+3. Geração de embeddings usando OpenAI API
+4. Inserção no PostgreSQL com vetores
+5. Criação de índice HNSW para performance
+6. Inserção no Neo4j com MERGE para evitar duplicatas
+
+Autor: Tavs Coelho - Universidade Federal de Goiás (UFG)
+Curso: Aprendizado de Máquina
 """
 
 import os
 import pandas as pd
 import psycopg2
+from typing import List, Dict, Any
 from pgvector.psycopg2 import register_vector
 from neo4j import GraphDatabase
 import openai
 from tqdm import tqdm
 from dotenv import load_dotenv
 
-# Load environment variables
+# Carregar variáveis de ambiente
 load_dotenv()
 
-# Constants
-EMBEDDING_DIMENSION = 1536  # Dimension for text-embedding-3-small model
-BATCH_SIZE = 1000  # Number of rows to commit at once for PostgreSQL
+# Constantes de configuração
+EMBEDDING_DIMENSION = 1536  # Dimensão do modelo text-embedding-3-small da OpenAI
+BATCH_SIZE = 1000  # Número de linhas para commit em lote no PostgreSQL
 
 
 def get_postgres_connection():
@@ -169,15 +199,31 @@ def create_hnsw_index(conn):
     print("HNSW index created successfully.")
 
 
-def sanitize_cnpj(cnpj_str):
+def sanitize_cnpj(cnpj_str) -> str:
     """
-    Sanitize CNPJ by removing dots, dashes, and slashes.
+    Sanitiza CNPJ removendo pontuação e espaços.
+    
+    Esta função é crítica para garantir a unicidade dos nós :Fornecedor no
+    Neo4j. CNPJs podem vir formatados de diferentes formas da API:
+    - "12.345.678/0001-90"
+    - "12345678000190"
+    - "12.345.678/0001-90  " (com espaços)
+    
+    Todos devem ser normalizados para "12345678000190" para evitar duplicatas.
     
     Args:
-        cnpj_str: CNPJ string (may contain formatting)
+        cnpj_str: String contendo CNPJ com ou sem formatação
     
     Returns:
-        str: Sanitized CNPJ with only numbers
+        str: CNPJ sanitizado contendo apenas números, ou string vazia se inválido
+    
+    Exemplos:
+        >>> sanitize_cnpj("12.345.678/0001-90")
+        '12345678000190'
+        >>> sanitize_cnpj("")
+        ''
+        >>> sanitize_cnpj(None)
+        ''
     """
     if pd.isna(cnpj_str) or not cnpj_str:
         return ""
