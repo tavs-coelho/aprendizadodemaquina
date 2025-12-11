@@ -1,0 +1,52 @@
+nome_deputado,siglaPartido,siglaUf,txtDescricao,vlrLiquido,txtFornecedor,cnpjCpfFornecedor,datEmissao
+Carlos Ferreira,PSOL,SP,Assessoria jurídica e consultoria legal,125000.00,Consultoria Legal SA,99888777000122,2024-01-15
+João Silva,PT,RJ,Serviços de consultoria estratégica empresarial,98500.50,Empresa ABC Ltda,12345678000190,2024-02-20
+Maria Santos,PSDB,MG,Locação de aeronaves para deslocamento,87300.00,Aviation Services Ltda,45678912000134,2024-01-10
+Pedro Oliveira,MDB,BA,Desenvolvimento de sistema de gestão integrada,76200.00,Tech Solutions Ltda,11222333000144,2024-03-05
+Ana Costa,PP,RS,Serviços de marketing e divulgação institucional,68900.75,Marketing Pro Agência,22333444000155,2024-02-15
+Roberto Lima,PDT,CE,Locação de veículos de luxo,62500.00,Rent Car Premium,33444555000166,2024-01-25
+Fernanda Alves,PSDB,SP,Consultorias e assessorias diversas,58700.30,Assessoria Executiva SA,44555666000177,2024-03-10
+Gustavo Souza,PT,PE,Serviços gráficos e de impressão,54300.00,Gráfica Digital Ltda,55666777000188,2024-02-01
+Juliana Martins,MDB,GO,Organização de eventos corporativos,51200.00,Eventos Premium Ltda,66777888000199,2024-01-20
+Ricardo Barbosa,PSOL,DF,Consultoria em comunicação institucional,49800.50,Comunicação Total SA,77888999000101,2024-03-15
+Patrícia Rocha,PP,SC,Locação de equipamentos audiovisuais,47500.00,Audiovisual Pro,88999000000112,2024-02-10
+Marcos Dias,PDT,PR,Serviços de tecnologia da informação,45600.75,TI Solutions Corp,99000111000123,2024-01-30
+Camila Nunes,PSDB,RJ,Assessoria de imprensa e comunicação,43200.00,Press Office Comunicação,11222333000134,2024-03-01
+André Pereira,PT,SP,Locação de escritório mobiliado,41800.30,Real Estate Premium,22333444000145,2024-02-25
+Luciana Castro,MDB,MG,Serviços de consultoria administrativa,39500.00,Admin Consultoria Ltda,33444555000156,2024-01-18
+Bruno Moreira,PSOL,BA,Produção de material audiovisual,37900.50,Vídeo Maker Pro,44555666000167,2024-03-08
+Daniela Cardoso,PP,CE,Serviços de design e criação,36200.00,Creative Design Studio,55666777000178,2024-02-20
+Felipe Santos,PDT,RS,Locação de equipamentos de informática,34700.75,Tech Rent Ltda,66777888000189,2024-01-22
+Gabriela Lima,PSDB,PE,Consultoria em gestão de projetos,33100.00,Project Management SA,77888999000190,2024-03-12
+Henrique Costa,PT,GO,Serviços de telefonia e internet,31500.30,Telecom Solutions,88999000000101,2024-02-05
+Isabela Ferreira,MDB,DF,Locação de mobiliário para eventos,29800.00,Móveis & Eventos Ltda,99000111000112,2024-01-28
+José Oliveira,PSOL,SC,Assessoria contábil e financeira,28200.50,Contabilidade Expert,11222333000123,2024-03-18
+Larissa Rodrigues,PP,PR,Serviços de tradução e interpretação,26700.00,Idiomas Professional,22333444000134,2024-02-12
+Maurício Souza,PDT,RJ,Locação de salas para reuniões,25100.75,Business Center Premium,33444555000145,2024-01-26
+Natália Almeida,PSDB,SP,Consultoria em recursos humanos,23800.00,RH Solutions Corp,44555666000156,2024-03-06
+Otávio Barbosa,PT,MG,Serviços de segurança patrimonial,22500.30,Segurança Total Ltda,55666777000167,2024-02-18
+Paula Dias,MDB,BA,Produção de material gráfico,21300.00,Impressos & Cia,66777888000178,2024-01-14
+Quantin Rocha,PSOL,CE,Locação de equipamentos de som,20100.50,Sound Pro Equipamentos,77888999000189,2024-03-20
+Rafael Nunes,PP,RS,Serviços de limpeza e conservação,18900.00,Clean Service Ltda,88999000000190,2024-02-08
+Sabrina Pereira,PDT,PE,Consultoria em marketing digital,17700.75,Digital Marketing Pro,99000111000101,2024-01-12
+Tiago Castro,PSDB,GO,Locação de veículos utilitários,16500.00,Frota Fácil Locadora,11222333000112,2024-03-22
+Ursula Moreira,PT,DF,Serviços de manutenção de equipamentos,15400.30,Manutenção Express,22333444000123,2024-02-22
+Vinicius Cardoso,MDB,SC,Assessoria em comunicação social,14300.00,Social Media Experts,33444555000134,2024-01-16
+Wagner Santos,PSOL,PR,Locação de espaço para escritório,13200.50,Espaços Corporativos SA,44555666000145,2024-03-14
+Xavier Lima,PP,RJ,Serviços de buffet e catering,12100.00,Sabor & Eventos Buffet,55666777000156,2024-02-26
+Yara Costa,PDT,SP,Consultoria em legislação trabalhista,11000.75,Trabalho & Direito Consultoria,66777888000167,2024-01-24
+Zélia Ferreira,PSDB,MG,Locação de projetores e telas,9900.00,Projeção Total,77888999000178,2024-03-16
+Alberto Oliveira,PT,BA,Serviços de jardinagem e paisagismo,8800.30,Verde Vida Paisagismo,88999000000189,2024-02-14
+Beatriz Rodrigues,MDB,CE,Assessoria em relações públicas,7700.00,PR Consultoria SA,99000111000190,2024-01-29
+Cesar Souza,PSOL,RS,Locação de carpas e tendas,6600.50,Tendas & Eventos,11222333000101,2024-03-24
+Diana Almeida,PP,PE,Serviços de recepção e atendimento,5500.00,Recepciona Bem Ltda,22333444000112,2024-02-16
+Eduardo Barbosa,PDT,GO,Consultoria em gestão ambiental,4400.75,Eco Consultoria Verde,33444555000123,2024-01-19
+Fabiana Dias,PSDB,DF,Locação de notebook e tablets,3300.00,Tech Equipamentos,44555666000134,2024-03-26
+Gabriel Rocha,PT,SC,Serviços de fotografia profissional,2200.30,Foto Studio Premium,55666777000145,2024-02-24
+Helena Nunes,MDB,PR,Assessoria em compliance,1850.00,Compliance & Ética SA,66777888000156,2024-01-21
+Igor Pereira,PSOL,RJ,Locação de impressoras multifuncionais,1650.50,Print Solutions Ltda,77888999000167,2024-03-28
+Julia Castro,PP,SP,Serviços de encadernação e acabamento,1450.00,Encaderna Bem,88999000000178,2024-02-28
+Kevin Moreira,PDT,MG,Consultoria em inovação tecnológica,1250.75,Inova Tech Consultoria,99000111000189,2024-01-23
+Laura Cardoso,PSDB,BA,Locação de central telefônica,1050.00,Telefonia Corporativa,11222333000190,2024-03-30
+Miguel Santos,PT,CE,Serviços de copiadora e reprografia,850.30,Copy Center Express,22333444000101,2024-02-19
+Nina Lima,MDB,RS,Assessoria em sustentabilidade,650.00,Sustenta Consultoria,33444555000112,2024-01-27
