@@ -26,3 +26,6 @@ requests>=2.31.0
 
 # Terminal colors for setup and verification script
 colorama>=0.4.6
+
+# Browser automation for evidence generation
+playwright>=1.40.0
