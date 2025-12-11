@@ -31,6 +31,8 @@ chroma_db/
 despesas_camara.csv
 
 # Evidence generation output
-evidencias/
+evidencias/*.png
+evidencias/*.jpg
+evidencias/*.html
 report_temp.html
 data_temp.html

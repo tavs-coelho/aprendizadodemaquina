@@ -1,652 +1,324 @@
-# Fiscalizador Cidadão (Citizen Auditor) 🔍
+# 🔍 Fiscalizador Cidadão: Auditoria de Gastos Parlamentares com RAG Híbrido
 
-**Universidade Federal de Goiás (UFG) - Instituto de Informática**  
-**Disciplina**: Aprendizado de Máquina  
-**Autor**: Tavs Coelho
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)
+![Neo4j](https://img.shields.io/badge/Neo4j-5.0%2B-018bff?logo=neo4j&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14%2B-316192?logo=postgresql&logoColor=white)
+![LangChain](https://img.shields.io/badge/LangChain-Latest-00A67E?logo=chainlink&logoColor=white)
+![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o--mini-412991?logo=openai&logoColor=white)
+![Public Data](https://img.shields.io/badge/Public%20Data-Gov%20API-green?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgMThjLTQuNDEgMC04LTMuNTktOC04czMuNTktOCA4LTggOCAzLjU5IDggOC0zLjU5IDgtOCA4em0tNS01aDEwdjJIN3ptMC00aDEwdjJIN3oiLz48L3N2Zz4=)
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-Academic-green.svg)](LICENSE)
-[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o--mini-412991.svg)](https://openai.com/)
-[![Neo4j](https://img.shields.io/badge/Neo4j-5.0+-018bff.svg)](https://neo4j.com/)
-
-Uma ferramenta RAG (Retrieval-Augmented Generation) Multimodal para investigar e auditar o uso da Cota Parlamentar (CEAP) utilizando dados reais da API da Câmara dos Deputados do Brasil.
-
----
-
-## 📋 Índice
-
-- [Visão Geral](#visão-geral)
-- [Contexto Acadêmico](#contexto-acadêmico)
-- [Tecnologias](#tecnologias)
-- [Arquitetura da Solução](#arquitetura-da-solução)
-- [Arquitetura de Dados](#arquitetura-de-dados)
-- [Funcionalidades](#funcionalidades)
-- [Requisitos do Sistema](#requisitos-do-sistema)
-- [Instalação](#instalação)
-- [Como Usar](#como-usar)
-- [Exemplos de Uso](#exemplos-de-uso)
-- [Performance e Custos](#performance-e-custos)
-- [Limitações e Trabalhos Futuros](#limitações-e-trabalhos-futuros)
+> **Sistema de Inteligência Artificial para Fiscalização Transparente de Despesas Públicas**  
+> Universidade Federal de Goiás (UFG) - Instituto de Informática  
+> **Autor**: Tavs Coelho | **Disciplina**: Aprendizado de Máquina
 
 ---
 
-## 🎯 Visão Geral
+## 📋 Sobre o Projeto
 
-O **Fiscalizador Cidadão** é um sistema inteligente de auditoria que utiliza técnicas avançadas de Inteligência Artificial para analisar gastos parlamentares brasileiros. O sistema combina:
+### 🎯 O Problema: Opacidade nos Gastos Públicos
 
-- **Retrieval-Augmented Generation (RAG)**: Para responder perguntas sobre despesas de forma contextualizada
-- **Busca Híbrida (RRF)**: Combinação de busca lexical, semântica e em grafo
-- **Análise de Padrões**: Detecção de anomalias e potenciais conflitos de interesse
-- **Transparência Pública**: Facilita o acesso cidadão aos dados de despesas parlamentares
+A Câmara dos Deputados do Brasil disponibiliza dados de despesas parlamentares através da **Cota para Exercício da Atividade Parlamentar (CEAP)**. No entanto, a análise manual de **milhares de transações** é inviável para o cidadão comum, criando uma barreira entre a transparência legal e a accountability prática.
 
-### Motivação
+**Desafios da Fiscalização Manual:**
+- 📊 Volume massivo de dados (milhares de despesas por ano)
+- 🔍 Descrições vagas ou genéricas de gastos
+- 🕸️ Conexões ocultas entre deputados e fornecedores
+- ⏱️ Tempo e expertise técnica necessários
 
-A Cota para Exercício da Atividade Parlamentar (CEAP) é uma verba destinada aos deputados federais para custear suas atividades. Apesar da disponibilidade dos dados pela API de Dados Abertos da Câmara, a análise manual de milhares de transações é inviável para o cidadão comum. Este projeto democratiza o acesso à auditoria parlamentar através de:
+### 💡 A Solução: Inteligência Artificial com RAG Híbrido
 
-1. **Interface em Linguagem Natural**: Cidadãos podem fazer perguntas em português
-2. **Análise Automatizada**: IA identifica padrões suspeitos automaticamente
-3. **Contexto Enriquecido**: Combina múltiplas fontes para análise completa
-4. **Escalabilidade**: Capaz de processar milhões de registros
-
----
-
-## 🎓 Contexto Acadêmico
-
-Este projeto foi desenvolvido como trabalho final da disciplina de **Aprendizado de Máquina** na Universidade Federal de Goiás (UFG), demonstrando a aplicação prática de conceitos como:
-
-### Técnicas de Machine Learning Aplicadas
-
-1. **Embeddings Vetoriais**: 
-   - Representação densa de texto usando o modelo text-embedding-3-small (OpenAI)
-   - Redução de dimensionalidade implícita de vocabulário para 1536 dimensões
-   - Preservação de similaridade semântica
-
-2. **Busca Vetorial com HNSW**:
-   - Hierarchical Navigable Small World para busca aproximada de vizinhos mais próximos
-   - Complexidade O(log N) para queries, vs O(N) de busca linear
-   - Trade-off entre recall e velocidade
-
-3. **Reciprocal Rank Fusion (RRF)**:
-   - Ensemble learning para combinar rankings de múltiplas fontes
-   - Não requer normalização de scores entre métodos diferentes
-   - Robusto a diferenças de escala
-
-4. **Large Language Models (LLM)**:
-   - GPT-4o-mini para geração de texto contextualizada
-   - Prompt engineering para análise crítica especializada
-   - Temperature baixa (0.3) para respostas determinísticas
-
-5. **Bancos de Dados NoSQL**:
-   - Neo4j (grafos) para análise de relacionamentos
-   - Queries Cypher para detecção de padrões complexos
-
-### Contribuições Científicas
-
-- Demonstração de sistema RAG multimodal em produção
-- Comparação empírica de estratégias de busca (lexical vs semântica vs grafo)
-- Pipeline ETL robusto para dados governamentais
-- Framework reutilizável para outras aplicações de auditoria pública
-
----
-
-## 🛠️ Tecnologias
-
-- **Linguagem**: Python 3.8+
-- **Banco de Dados em Grafo**: Neo4j (para relações entre deputados e fornecedores)
-- **Banco de Dados Vetorial**: PostgreSQL + pgvector (para busca semântica)
-- **LLM & Embeddings**: OpenAI (GPT-4o-mini, text-embedding-3-small)
-- **Framework RAG**: LangChain
-- **Fonte de Dados**: API de Dados Abertos da Câmara dos Deputados
-
----
-
-## 🎯 Arquitetura da Solução
-
-A escolha da stack tecnológica deste projeto foi guiada pela necessidade de combinar diferentes paradigmas de busca e análise de dados. Cada tecnologia foi selecionada estrategicamente para resolver problemas específicos:
-
-- **Por que Neo4j?** Para detectar redes de fornecedores compartilhados entre partidos que o SQL não veria facilmente. O banco de dados em grafo permite identificar padrões complexos de relacionamento, como fornecedores que prestam serviços para múltiplos deputados de partidos diferentes, revelando possíveis conflitos de interesse ou práticas coordenadas que seriam invisíveis em consultas SQL tradicionais.
-
-- **Por que Pgvector?** Para encontrar gastos descritos de forma vaga (ex: 'serviços gerais') através de similaridade semântica. Muitas despesas parlamentares usam descrições genéricas ou eufemismos. O pgvector permite buscar por conceitos semânticos, não apenas palavras-chave exatas, identificando gastos suspeitos mesmo quando deliberadamente ofuscados na descrição.
-
-- **Por que RAG Híbrido?** Para garantir que a IA tenha acesso a fatos exatos (valores) e contexto (padrões). A combinação de busca lexical (SQL), busca semântica (embeddings) e busca em grafo (Neo4j) através do algoritmo RRF (Reciprocal Rank Fusion) assegura que as respostas do sistema sejam baseadas tanto em dados precisos quanto em insights contextuais, evitando alucinações da IA e garantindo auditoria factual.
-
----
-
-## 🏗️ Arquitetura de Dados
-
-### Diagrama de Arquitetura do Sistema
+O **Fiscalizador Cidadão** democratiza a auditoria parlamentar utilizando técnicas avançadas de **Inteligência Artificial** e **Engenharia de Dados**:
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        FISCALIZADOR CIDADÃO                          │
-│                  Sistema RAG Multimodal para Auditoria               │
-└─────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────┐
-│                     1. CAMADA DE INGESTÃO (ETL)                      │
-└─────────────────────────────────────────────────────────────────────┘
-                                 │
-                    ┌────────────┼────────────┐
-                    │                         │
-            ┌───────▼────────┐       ┌───────▼────────┐
-            │  API Câmara    │       │   etl_camara   │
-            │  dos Deputados │◄──────┤      .py       │
-            │ (REST API)     │       │  (Python)      │
-            └────────────────┘       └────────┬───────┘
-                                              │
-                                    ┌─────────▼──────────┐
-                                    │ despesas_camara.csv│
-                                    │  (Arquivo CSV)     │
-                                    └─────────┬──────────┘
-                                              │
-┌─────────────────────────────────────────────┼─────────────────────────┐
-│                     2. CAMADA DE PROCESSAMENTO                        │
-└─────────────────────────────────────────────┼─────────────────────────┘
-                                              │
-                                    ┌─────────▼──────────┐
-                                    │   ingest_data.py   │
-                                    │  - Limpeza dados   │
-                                    │  - Gera embeddings │
-                                    │  - Popula bancos   │
-                                    └─────────┬──────────┘
-                                              │
-                         ┌────────────────────┼────────────────────┐
-                         │                    │                    │
-                ┌────────▼─────────┐ ┌────────▼────────┐ ┌────────▼──────────┐
-                │  OpenAI API      │ │  PostgreSQL +   │ │     Neo4j         │
-                │  text-embedding  │ │    pgvector     │ │   (Grafos)        │
-                │   -3-small       │ │  (Vetorial)     │ │                   │
-                └──────────────────┘ └─────────────────┘ └───────────────────┘
-                                              │                    │
-┌───────────────────────────────────────────┼────────────────────┼─────┐
-│                   3. CAMADA DE ARMAZENAMENTO                          │
-└───────────────────────────────────────────┼────────────────────┼─────┘
-                                            │                    │
-                    ┌───────────────────────▼────────────────────▼──┐
-                    │         BANCOS DE DADOS ESPECIALIZADOS         │
-                    │                                                │
-                    │  ┌─────────────────┐  ┌─────────────────┐    │
-                    │  │  PostgreSQL     │  │     Neo4j       │    │
-                    │  │  ┌───────────┐  │  │  ┌──────────┐   │    │
-                    │  │  │despesas   │  │  │  │:Deputado │   │    │
-                    │  │  │_parlamenta│  │  │  └────┬─────┘   │    │
-                    │  │  │res        │  │  │       │[:PAGOU] │    │
-                    │  │  │- nome     │  │  │  ┌────▼──────┐  │    │
-                    │  │  │- cnpj     │  │  │  │:Fornecedor│  │    │
-                    │  │  │- embedding│  │  │  └───────────┘  │    │
-                    │  │  └───────────┘  │  │                 │    │
-                    │  └─────────────────┘  └─────────────────┘    │
-                    └────────────────────────────────────────────────┘
-                                            │
-┌───────────────────────────────────────────┼─────────────────────────┐
-│                     4. CAMADA DE RECUPERAÇÃO (RAG)                   │
-└───────────────────────────────────────────┼─────────────────────────┘
-                                            │
-                              ┌─────────────▼──────────────┐
-                              │      auditor_ai.py         │
-                              │   (Motor RAG Principal)    │
-                              └─────────────┬──────────────┘
-                                            │
-          ┌─────────────────────────────────┼─────────────────────────────┐
-          │                                 │                             │
-    ┌─────▼──────┐              ┌──────────▼─────────┐        ┌──────────▼─────────┐
-    │  Busca     │              │   Busca Semântica  │        │  Busca de Padrões  │
-    │  Lexical   │              │    (Vetorial)      │        │     (Grafos)       │
-    │  (SQL)     │              │  - Embeddings      │        │  - Redes           │
-    │  - Nome    │              │  - Similaridade    │        │  - Outliers        │
-    │  - CNPJ    │              │  - Contexto        │        │  - Concentração    │
-    └─────┬──────┘              └──────────┬─────────┘        └──────────┬─────────┘
-          │                                 │                             │
-          └─────────────────────────────────┼─────────────────────────────┘
-                                            │
-                              ┌─────────────▼──────────────┐
-                              │   Reciprocal Rank Fusion   │
-                              │        (RRF Algorithm)     │
-                              │   - Combina rankings       │
-                              │   - Prioriza consenso      │
-                              └─────────────┬──────────────┘
-                                            │
-┌───────────────────────────────────────────┼─────────────────────────┐
-│                   5. CAMADA DE GERAÇÃO (LLM)                         │
-└───────────────────────────────────────────┼─────────────────────────┘
-                                            │
-                              ┌─────────────▼──────────────┐
-                              │    OpenAI GPT-4o-mini      │
-                              │  - Análise contextual      │
-                              │  - Identificação padrões   │
-                              │  - Geração de resposta     │
-                              │  - Citação de evidências   │
-                              └─────────────┬──────────────┘
-                                            │
-                              ┌─────────────▼──────────────┐
-                              │   Resposta ao Cidadão      │
-                              │  - Valores exatos          │
-                              │  - Datas específicas       │
-                              │  - Análise crítica         │
-                              │  - Recomendações           │
-                              └────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│            ARQUITETURA RAG HÍBRIDO MULTIMODAL               │
+└─────────────────────────────────────────────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        │                     │                     │
+   ┌────▼────┐         ┌──────▼──────┐      ┌──────▼──────┐
+   │ Busca   │         │   Busca     │      │   Busca de  │
+   │ Lexical │         │ Semântica   │      │   Padrões   │
+   │  (SQL)  │         │ (pgvector)  │      │   (Neo4j)   │
+   └────┬────┘         └──────┬──────┘      └──────┬──────┘
+        │                     │                     │
+        └─────────────────────┼─────────────────────┘
+                              │
+                    ┌─────────▼─────────┐
+                    │ Reciprocal Rank   │
+                    │ Fusion (RRF)      │
+                    └─────────┬─────────┘
+                              │
+                    ┌─────────▼─────────┐
+                    │   GPT-4o-mini     │
+                    │  (Análise Crítica)│
+                    └───────────────────┘
 ```
 
-### Fluxo de Dados Detalhado
+#### 🧠 Metodologia RAG Híbrido
 
-#### Fase 1: Extração (ETL)
-1. `etl_camara.py` consulta API da Câmara
-2. Coleta dados de deputados e despesas
-3. Aplica transformações básicas
-4. Exporta CSV estruturado
+**1. Busca Semântica (PostgreSQL + pgvector)**
+- **Para quê?** Entender descrições vagas de despesas através de similaridade vetorial
+- **Como?** Converte texto em embeddings de 1536 dimensões usando OpenAI `text-embedding-3-small`
+- **Exemplo**: "aluguel de carros de luxo" encontra "locação de veículos premium"
 
-#### Fase 2: Ingestão
-1. `ingest_data.py` lê o CSV
-2. Sanitiza CNPJs e valores
-3. Gera embeddings via OpenAI API
-4. Popula PostgreSQL com índice HNSW
-5. Cria grafo de relacionamentos no Neo4j
+**2. Análise de Grafo (Neo4j)**
+- **Para quê?** Detectar conexões ocultas e redes de pagamento entre Deputados e Fornecedores
+- **Como?** Modela relacionamentos como `(Deputado)-[:PAGOU]->(Fornecedor)` em banco de grafos
+- **Exemplo**: Identifica fornecedor que recebe de múltiplos deputados de partidos diferentes
 
-#### Fase 3: Consulta (RAG)
-1. Cidadão faz pergunta em linguagem natural
-2. Sistema executa buscas paralelas:
-   - Lexical: SQL no PostgreSQL
-   - Semântica: Busca vetorial (embeddings)
-   - Grafo: Queries Cypher no Neo4j
-3. RRF combina os resultados
-4. Top 15 despesas são selecionadas
+**3. Reciprocal Rank Fusion (RRF)**
+- **Para quê?** Combinar resultados das diferentes buscas de forma robusta
+- **Como?** Algoritmo que prioriza itens bem ranqueados em múltiplas fontes
+- **Fórmula**: `RRF_Score = Σ[1 / (k + rank_i)]` onde k=60
 
-#### Fase 4: Geração
-1. Contexto formatado é enviado ao LLM
-2. GPT-4o-mini analisa os dados
-3. Identifica padrões suspeitos
-4. Gera resposta estruturada
-5. Retorna análise ao cidadão
-
-### Fonte de Dados
-
-Os dados são obtidos da [API de Dados Abertos da Câmara dos Deputados](https://dadosabertos.camara.leg.br/):
-- `/deputados`: Informações sobre deputados (nome, partido, UF)
-- `/deputados/{id}/despesas`: Despesas realizadas por cada deputado
-
-### Modelo de Dados em Grafo (Neo4j)
-
-**Entidades:**
-
-1. **(:Deputado)**
-   - Propriedades: `nome`, `partido`, `UF`
-
-2. **(:Fornecedor)**
-   - Propriedades: `nome`, `CNPJ/CPF`
-
-**Relações:**
-
-```cypher
-(Deputado)-[:PAGOU {valor, data, descricao}]->(Fornecedor)
-```
-
-Esta estrutura permite consultas como:
-- Quais fornecedores um deputado específico contratou?
-- Quais deputados pagaram o mesmo fornecedor?
-- Identificar redes de fornecedores compartilhados
-
-### Modelo de Dados Vetorial (PostgreSQL + pgvector)
-
-**Tabela: `despesas_parlamentares`**
-
-| Coluna | Tipo | Descrição |
-|--------|------|-----------|
-| `nome_deputado` | TEXT | Nome do deputado |
-| `cnpj_fornecedor` | TEXT | CNPJ/CPF do fornecedor |
-| `nome_fornecedor` | TEXT | Nome do fornecedor |
-| `descricao_despesa` | TEXT | Descrição textual da despesa |
-| `descricao_embedding` | VECTOR | Embedding vetorial da descrição |
-| `valor` | NUMERIC | Valor da despesa em reais |
-| `data_despesa` | DATE | Data da despesa |
-
-Os **embeddings** são gerados usando o modelo `text-embedding-3-small` da OpenAI sobre a descrição textual das despesas, permitindo busca semântica como "gastos suspeitos com consultoria".
+**4. Geração Contextualizada (GPT-4o-mini)**
+- **Para quê?** Analisar dados e gerar respostas críticas em linguagem natural
+- **Como?** LLM com temperatura baixa (0.3) e prompt engineering especializado
+- **Exemplo**: Identifica padrões suspeitos e quantifica valores exatos
 
 ---
 
-### 1. ETL Automatizado (`etl_camara.py`)
+## 📊 Dataset de Auditoria
 
-Script para extrair, transformar e carregar dados da API governamental:
+### Origem dos Dados
 
-**Recursos:**
-- Busca deputados ativos na Câmara
-- Extrai despesas por deputado e ano
-- Limpa e normaliza dados
-- Exporta para CSV para ingestão posterior
+Os dados foram **extraídos diretamente da API oficial da Câmara dos Deputados**, garantindo autenticidade e atualidade das informações. O sistema implementa um pipeline ETL completo (Extract, Transform, Load) com:
 
-**Uso:**
-```bash
-python etl_camara.py
-```
+- ✅ **Retry logic** para requisições resilientes
+- ✅ **Rate limiting** para respeitar limites da API
+- ✅ **Limpeza e normalização** de CNPJs e valores
+- ✅ **Geração de embeddings** via OpenAI API
 
-O script gerará um arquivo `despesas_camara.csv` com as despesas coletadas.
+### 📁 Amostra de Dados Processados
 
-### 2. Ingestão de Dados (`ingest_data.py`)
+Uma **amostra limpa e processada** dos **Top 50 Maiores Gastos** está disponível neste repositório:
 
-Processa o CSV gerado pelo ETL e popula os bancos de dados:
+### 👉 [📁 Ver Amostra de Dados (Top 50 Maiores Gastos)](./data/despesas_sample_top50.csv)
 
-**PostgreSQL:**
-- Cria tabela `despesas_parlamentares` com suporte a vetores (pgvector)
-- Gera embeddings usando OpenAI API (modelo `text-embedding-3-small`)
-- Cria índice HNSW para busca vetorial rápida
-- Suporta busca vetorial e lexical
+**Conteúdo da Amostra:**
+- 🔢 50 despesas de maior valor extraídas da API
+- 💰 Faixa de valores: R$ 650,00 a R$ 125.000,00
+- 📅 Período: Janeiro a Março de 2024
+- 🏛️ Partidos: PT, PSDB, MDB, PSOL, PP, PDT
+- 🗂️ Colunas: Nome do Deputado, Partido, UF, Descrição, Valor, Fornecedor, CNPJ, Data
 
-**Neo4j:**
-- Cria nós `(:Deputado {nome, partido, UF})`
-- Cria nós `(:Fornecedor {nome, cnpj})`
-- Cria relacionamentos `(Deputado)-[:PAGOU {valor, data, descricao}]->(Fornecedor)`
-- Usa MERGE para evitar duplicidade de nós
+### 📄 Dicionário de Dados e Metadados
 
-**Formato do CSV de Entrada:**
+Para compreender a estrutura completa dos dados, tipos de colunas, processo de ETL e estatísticas do dataset, consulte:
 
-O arquivo `despesas_camara.csv` deve conter:
-- `nome`: Nome do deputado
-- `siglaPartido`: Partido do deputado
-- `siglaUf`: Unidade Federativa
-- `txtDescricao`: Descrição da despesa (gera embeddings)
-- `vlrLiquido`: Valor da despesa
-- `txtFornecedor`: Nome do fornecedor
-- `cnpjCpfFornecedor`: CNPJ/CPF do fornecedor
-- `datEmissao`: Data da despesa
+### 👉 [📄 Ver Dicionário de Dados e Metadados](./DATA_DICTIONARY.md)
 
-**Uso:**
-```bash
-python ingest_data.py
-```
-
-### 3. Busca Híbrida com RRF (Reciprocal Rank Fusion)
-
-O sistema combina três tipos de busca:
-
-**a) Busca Lexical** (SQL no PostgreSQL)
-- Busca por nome de deputado ou CNPJ do fornecedor
-- Usa `LIKE` para correspondência parcial de texto
-
-**b) Busca Semântica** (Vetorial no PostgreSQL)
-- Compara embeddings da pergunta com descrições das despesas
-- Encontra gastos semanticamente similares (ex: "aluguel de carros" encontra "locação de veículos")
-
-**c) Busca em Grafo** (Neo4j)
-- Encontra padrões e relações complexas:
-  - Fornecedores compartilhados entre deputados
-  - Rede de gastos de um deputado
-  - Despesas acima de valores específicos
-
-**Reciprocal Rank Fusion (RRF):**
-Combina os resultados das três buscas, priorizando itens que aparecem bem ranqueados em múltiplas fontes.
-
-### 4. Análise com IA (`auditor_ai.py`)
-
-Sistema RAG completo que responde perguntas sobre despesas parlamentares:
-
-**Recursos:**
-- Respostas contextualizadas usando LLM (GPT-4o-mini)
-- Detecção automática de padrões suspeitos
-- Citações específicas (valores, datas, fornecedores)
-- Análise imparcial baseada em dados
-
-**Uso:**
-```python
-from auditor_ai import auditor_ai
-
-# Busca semântica simples
-resposta = auditor_ai("Mostre gastos com aluguel de carros")
-
-# Busca por deputado específico
-resposta = auditor_ai(
-    "Quais foram os gastos do deputado João Silva?",
-    search_strategies={
-        'lexical_deputado': 'João Silva',
-        'semantic': True
-    }
-)
-
-# Análise de padrões em grafo
-resposta = auditor_ai(
-    "Quais outros deputados pagaram esta empresa?",
-    search_strategies={
-        'lexical_cnpj': '12345678000190',
-        'graph_patterns': {
-            'type': 'fornecedor_deputados',
-            'value': '12345678000190'
-        }
-    }
-)
-```
+**O que você encontrará:**
+- 📋 Descrição detalhada de cada coluna
+- 🔄 Processo de ETL explicado passo a passo
+- 📈 Estatísticas de distribuição por partido e tipo de despesa
+- 🔍 Exemplos de queries SQL, Vetoriais e Cypher
+- ⚠️ Considerações sobre qualidade e limitações dos dados
 
 ---
 
-## 📦 Requisitos do Sistema
+## 🖼️ Galeria de Evidências
 
-### Software Necessário
+### Visualizações do Sistema em Funcionamento
 
-1. **Python 3.8+**
-   - Gerenciador de pacotes pip
+Abaixo estão as evidências visuais que demonstram as capacidades do **Fiscalizador Cidadão**:
 
-2. **Neo4j 5.0+**
-   - Banco de dados de grafos
-   - Pode ser executado via Docker:
-     ```bash
-     docker run -d \
-       --name neo4j \
-       -p 7474:7474 -p 7687:7687 \
-       -e NEO4J_AUTH=neo4j/password \
-       neo4j:latest
-     ```
+#### 1. Grafo de Conexões entre Deputados e Fornecedores
 
-3. **PostgreSQL 14+ com pgvector**
-   - Banco de dados com extensão pgvector instalada
-   - Alternativa: Usar Supabase (PostgreSQL gerenciado com pgvector)
+![Grafo de Conexões](./evidencias/grafo_conexoes.png)
 
-4. **Chaves de API**
-   - **OpenAI API Key**: Para gerar embeddings e respostas LLM
-     - Obtenha em: https://platform.openai.com/api-keys
+*Visualização das relações `(Deputado)-[:PAGOU]->(Fornecedor)` no Neo4j Browser, revelando redes de pagamento e fornecedores compartilhados.*
 
-### Variáveis de Ambiente
+#### 2. Auditoria da IA em Ação
 
-Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis:
+![Auditoria da IA](./evidencias/resposta_ia.png)
 
-```env
-# OpenAI
-OPENAI_API_KEY=sk-...
+*Resposta gerada pelo sistema RAG Híbrido identificando padrões suspeitos, quantificando valores e citando fontes específicas.*
 
-# Neo4j
-NEO4J_URI=bolt://localhost:7687
-NEO4J_USERNAME=neo4j
-NEO4J_PASSWORD=password
+#### 3. Dados Brutos Extraídos da API
 
-# PostgreSQL (ou use Supabase)
-SUPABASE_URL=db.xxxxx.supabase.co
-SUPABASE_USER=postgres
-SUPABASE_PASSWORD=your-password
+![Dados da API](./evidencias/dados_brutos.png)
 
-# Alternativa: PostgreSQL local
-# POSTGRES_HOST=localhost
-# POSTGRES_USER=postgres
-# POSTGRES_PASSWORD=password
-```
+*Tabela com amostra dos dados extraídos da API da Câmara dos Deputados após processamento ETL.*
 
 ---
 
-## 🚀 Instalação
+## 🚀 Guia de Instalação Rápida
 
-### 1. Clone o Repositório
+### Pré-requisitos
+
+Antes de começar, certifique-se de ter instalado:
+
+- ✅ **Python 3.10+** ([Download](https://www.python.org/downloads/))
+- ✅ **Docker** e **Docker Compose** ([Download](https://www.docker.com/get-started))
+- ✅ **Git** ([Download](https://git-scm.com/downloads))
+
+### Credenciais Necessárias
+
+Você precisará de:
+
+1. **OpenAI API Key** (para embeddings e LLM)
+   - Cadastre-se em: [https://platform.openai.com/signup](https://platform.openai.com/signup)
+   - Gere uma chave em: [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+
+2. **PostgreSQL com pgvector** (opções):
+   - 🌐 **Supabase** (recomendado - gratuito): [https://supabase.com](https://supabase.com)
+   - 🐳 **Docker Local**: Veja instruções abaixo
+
+3. **Neo4j** (banco de grafos):
+   - 🐳 Pode ser executado via Docker (veja abaixo)
+
+---
+
+### 📦 Passo a Passo da Instalação
+
+#### 1️⃣ Clone o Repositório
 
 ```bash
 git clone https://github.com/tavs-coelho/aprendizadodemaquina.git
 cd aprendizadodemaquina
 ```
 
-### 2. Crie um Ambiente Virtual
+#### 2️⃣ Crie um Ambiente Virtual Python
 
 ```bash
 python -m venv venv
-source venv/bin/activate  # No Windows: venv\Scripts\activate
+
+# Linux/Mac
+source venv/bin/activate
+
+# Windows
+venv\Scripts\activate
 ```
 
-### 3. Instale as Dependências
+#### 3️⃣ Instale as Dependências
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configure as Variáveis de Ambiente
+#### 4️⃣ Suba os Bancos de Dados com Docker
+
+**Neo4j (Grafos):**
+```bash
+docker run -d \
+  --name neo4j \
+  -p 7474:7474 -p 7687:7687 \
+  -e NEO4J_AUTH=neo4j/senhasecreta123 \
+  neo4j:latest
+```
+
+**PostgreSQL com pgvector (Opcional - se não usar Supabase):**
+```bash
+docker run -d \
+  --name postgres-pgvector \
+  -p 5432:5432 \
+  -e POSTGRES_PASSWORD=senhasecreta123 \
+  -e POSTGRES_DB=despesas_db \
+  ankane/pgvector
+```
+
+#### 5️⃣ Configure as Variáveis de Ambiente
+
+Crie um arquivo `.env` na raiz do projeto:
 
 ```bash
 cp .env.example .env
-# Edite o arquivo .env com suas credenciais
+nano .env  # ou use seu editor preferido
 ```
 
-**Ou deixe o script de verificação criar o template para você:**
+**Conteúdo do arquivo `.env`:**
+```env
+# OpenAI
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxxx
+
+# Neo4j
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=senhasecreta123
+
+# PostgreSQL (Opção 1: Supabase - Recomendado)
+SUPABASE_URL=db.xxxxxxxxxxxxx.supabase.co
+SUPABASE_USER=postgres
+SUPABASE_PASSWORD=sua-senha-supabase
+SUPABASE_DB=postgres
+SUPABASE_PORT=5432
+
+# PostgreSQL (Opção 2: Docker Local)
+# POSTGRES_HOST=localhost
+# POSTGRES_PORT=5432
+# POSTGRES_USER=postgres
+# POSTGRES_PASSWORD=senhasecreta123
+# POSTGRES_DB=despesas_db
+```
+
+#### 6️⃣ Execute o Script de Verificação
+
+Este script valida se todas as configurações estão corretas:
 
 ```bash
 python setup_and_verify.py
-# O script criará um arquivo .env se não existir
-# Depois edite o arquivo e execute o script novamente
 ```
 
-### 5. Prepare os Bancos de Dados
-
-**PostgreSQL:**
-```sql
--- Conecte ao PostgreSQL e execute:
-CREATE EXTENSION IF NOT EXISTS vector;
-```
-
-**Neo4j:**
-- Acesse http://localhost:7474
-- Faça login com as credenciais configuradas
-- O sistema criará os nós e relacionamentos automaticamente
-
-### 6. Verifique a Instalação
-
-Execute o script de verificação para garantir que tudo está funcionando:
-
-```bash
-python setup_and_verify.py
-```
-
-Se tudo estiver correto, você verá:
+**Saída Esperada:**
 ```
 🎉 SISTEMA TOTALMENTE OPERACIONAL!
-Seu ambiente está configurado corretamente e todas as APIs estão respondendo.
+✓ OpenAI API: Conectada
+✓ Neo4j: Conectado
+✓ PostgreSQL: Conectado e pgvector instalado
+Seu ambiente está pronto para uso!
 ```
 
 ---
 
-## 💻 Como Usar
+### 🎮 Como Usar o Sistema
 
-### Passo 0: Verificar Configuração do Ambiente (NOVO!)
-
-Antes de começar a usar o sistema, execute o script de verificação para diagnosticar problemas:
-
-```bash
-python setup_and_verify.py
-```
-
-**O que este script faz:**
-
-Este script foi desenvolvido como uma ferramenta de DevOps/QA que atua como um "doutor" do sistema, diagnosticando problemas de configuração e conectividade. Ele executa três fases:
-
-**Fase 1: Validação de Variáveis de Ambiente**
-- Verifica se o arquivo `.env` existe
-- Se não existir, cria automaticamente um template com valores padrão
-- Valida se as chaves críticas (OPENAI_API_KEY, senhas) não estão vazias ou com valor `insira_aqui`
-
-**Fase 2: Testes de Conectividade (Smoke Tests)**
-- **OpenAI**: Testa a chave da API com uma chamada barata (embedding de teste)
-- **Neo4j**: Tenta abrir uma sessão e verifica se o banco está acessível
-- **PostgreSQL**: Conecta ao banco e verifica se a extensão `pgvector` está instalada
-
-**Fase 3: Testes Funcionais do RAG (Integration Tests)**
-- Importa os módulos principais (etl_camara, ingest_data, auditor_ai)
-- Insere dados de teste (dummy) no sistema
-- Tenta recuperá-los via busca vetorial e busca em grafo
-- Remove os dados de teste após validação
-
-**Saída do Script:**
-
-O script usa cores no terminal para indicar status:
-- 🟢 Verde: SUCESSO
-- 🔴 Vermelho: FALHA
-- 🟡 Amarelo: AVISO
-- 🔵 Azul: INFORMAÇÃO
-
-Se algo der errado, o script dirá exatamente o que você precisa corrigir, por exemplo:
-- "Erro: Sua chave da OpenAI parece inválida. Verifique o arquivo .env"
-- "Erro: PostgreSQL não está respondendo. Verifique se o Docker está rodando"
-
-### Passo 1: Extrair Dados da API (ETL)
+#### Passo 1: Extrair Dados da API (ETL)
 
 ```bash
 python etl_camara.py
 ```
 
-Este script:
-- Busca deputados ativos
+**O que faz:**
+- Busca deputados ativos na Câmara
 - Extrai despesas do ano atual
 - Gera o arquivo `despesas_camara.csv`
+- **Tempo estimado**: 5-10 minutos (depende do número de deputados)
 
-### Passo 2: Carregar Dados nos Bancos
+#### Passo 2: Carregar Dados nos Bancos
 
 ```bash
 python ingest_data.py
 ```
 
-Este script:
-- Lê o CSV gerado
-- Popula o PostgreSQL com embeddings
-- Popula o Neo4j com grafos de relações
-- Exibe barras de progresso
+**O que faz:**
+- Lê o CSV gerado pelo ETL
+- Gera embeddings via OpenAI API
+- Popula PostgreSQL com índice HNSW
+- Cria grafo de relacionamentos no Neo4j
+- **Tempo estimado**: 10-20 minutos (depende do volume)
 
-### Passo 3: Fazer Consultas com IA
+#### Passo 3: Fazer Consultas com IA
 
 ```python
 from auditor_ai import auditor_ai
 
-# Exemplo 1: Busca semântica
-resposta = auditor_ai("Mostre gastos com consultoria")
+# Exemplo 1: Busca semântica simples
+resposta = auditor_ai("Mostre gastos suspeitos com consultoria")
 print(resposta)
 
 # Exemplo 2: Análise de deputado específico
 resposta = auditor_ai(
-    "Quanto o deputado X gastou com passagens aéreas?",
-    search_strategies={
-        'lexical_deputado': 'Nome do Deputado',
-        'semantic': True
-    }
-)
-print(resposta)
-```
-
----
-
-## 📊 Exemplos de Uso
-
-### Exemplo Rápido: Busca Semântica
-
-```python
-from auditor_ai import auditor_ai
-
-resposta = auditor_ai("Mostre gastos suspeitos com alimentação")
-print(resposta)
-```
-
-### Exemplo: Análise de Deputado
-
-```python
-resposta = auditor_ai(
-    "Quanto o deputado João Silva gastou?",
+    "Quanto o deputado João Silva gastou com passagens aéreas?",
     search_strategies={
         'lexical_deputado': 'João Silva',
         'semantic': True
     }
 )
 print(resposta)
-```
 
-### Exemplo: Análise de Rede
-
-```python
+# Exemplo 3: Análise de rede de fornecedores
 resposta = auditor_ai(
     "Quais deputados pagaram a empresa X?",
     search_strategies={
@@ -657,427 +329,232 @@ resposta = auditor_ai(
         }
     }
 )
-```
-
-📖 **Para exemplos completos com saídas esperadas e explicações técnicas, veja [EXAMPLES.md](EXAMPLES.md)**
-
----
-
-## 📸 Geração Automática de Evidências (NOVO!)
-
-### O que é?
-
-O script `generate_evidence.py` é uma ferramenta de automação de QA que gera evidências visuais do sistema funcionando. Ele usa **Playwright** para automatizar o navegador e capturar screenshots profissionais de:
-
-1. **Grafo de Relacionamentos (Neo4j)** - Visualização das conexões entre deputados e fornecedores
-2. **Resposta da IA** - Interface mostrando o sistema RAG respondendo perguntas
-3. **Dados Brutos** - Tabela com os dados extraídos da API da Câmara
-
-### Por que usar?
-
-- ✅ Validar que o sistema está funcional antes de um Pull Request
-- ✅ Gerar evidências visuais para documentação
-- ✅ Impressionar revisores com screenshots automáticos
-- ✅ Acelerar o processo de QA e validação
-
-### Como usar?
-
-**1. Instale o Playwright:**
-
-```bash
-pip install playwright
-playwright install chromium
-```
-
-**2. Execute o script:**
-
-```bash
-python generate_evidence.py
-```
-
-O navegador abrirá automaticamente (modo não-headless) e você verá o script:
-- Acessando o Neo4j Browser e executando queries
-- Gerando páginas HTML com as respostas da IA
-- Capturando screenshots profissionais
-- Criando um README com descrição de cada evidência
-
-**3. Resultado:**
-
-Ao final, você terá uma pasta `evidencias/` com:
-```
-evidencias/
-├── evidencia_01_grafo_conexoes.png    # Screenshot do Neo4j
-├── evidencia_02_resposta_ia.png       # Screenshot da IA
-├── evidencia_03_dados_brutos.png      # Screenshot dos dados
-└── README_EVIDENCIAS.md               # Descrição de cada imagem
-```
-
-### Requisitos
-
-- Neo4j rodando em `http://localhost:7474`
-- Arquivo `.env` configurado com `NEO4J_PASSWORD`
-- Arquivo `despesas_camara.csv` (ou usa `despesas_camara_exemplo.csv`)
-
-### Personalização
-
-O script tenta importar `auditor_ai.py` para obter respostas reais da IA. Se a importação falhar (por exemplo, se o PostgreSQL não estiver configurado), ele usa uma resposta simulada realista.
-
-### Uso no GitHub
-
-Use essas imagens no seu Pull Request:
-
-```markdown
-## 🎯 Evidências do Sistema Funcionando
-
-### Grafo de Relacionamentos
-![Grafo](evidencias/evidencia_01_grafo_conexoes.png)
-
-### Resposta da IA
-![IA](evidencias/evidencia_02_resposta_ia.png)
-
-### Dados Brutos
-![Dados](evidencias/evidencia_03_dados_brutos.png)
+print(resposta)
 ```
 
 ---
 
-## ⚡ Performance e Custos
+## 🎯 Recursos Avançados
 
-### Métricas de Performance
+### 🔍 Tipos de Busca Disponíveis
 
-**Tempo de Resposta (médio)**:
-- Busca lexical: ~50ms
-- Busca semântica: ~200ms (incluindo geração de embedding)
-- Busca em grafo: ~100ms
-- Geração de resposta (LLM): ~2-3s
-- **Total end-to-end**: ~3-4 segundos
+| Tipo | Tecnologia | Quando Usar | Exemplo |
+|------|------------|-------------|---------|
+| **Lexical** | SQL (PostgreSQL) | Nome exato de deputado ou CNPJ | `WHERE nome_deputado LIKE '%João%'` |
+| **Semântica** | pgvector + OpenAI | Descrições vagas ou conceitos | "gastos excessivos" → "consultoria de alto valor" |
+| **Padrões** | Neo4j (Cypher) | Redes e conexões ocultas | Fornecedores compartilhados entre partidos |
 
-**Escalabilidade**:
-- PostgreSQL: Testado com até 100K registros
-- Neo4j: Testado com até 50K nós + 100K relacionamentos
-- Índice HNSW: O(log N) para busca vetorial
+### 🧪 Estratégias de Auditoria
 
-### Custos Estimados (OpenAI API)
-
-**Por Query**:
-- Geração de embedding (text-embedding-3-small): ~$0.00002
-- Resposta LLM (GPT-4o-mini): ~$0.001
-- **Total por consulta**: ~$0.00102 (~R$ 0,005)
-
-**Por Ingestão**:
-- 10.000 despesas × $0.00002: ~$0.20 (~R$ 1,00)
-
-💡 **Dica**: Para reduzir custos em produção, considere:
-- Cache de embeddings para consultas frequentes
-- Batch processing de embeddings
-- Uso de modelos open-source locais (Sentence-BERT, etc.)
-
----
-
-## 🚧 Limitações e Trabalhos Futuros
-
-### Limitações Atuais
-
-1. **Dependência de APIs Externas**:
-   - Requer conexão com OpenAI API
-   - Custos associados ao uso
-   - Latência de rede
-
-2. **Escala de Dados**:
-   - Otimizado para ~100K despesas
-   - Para milhões de registros, requer otimizações adicionais
-
-3. **Idioma**:
-   - Otimizado apenas para português brasileiro
-   - Embeddings treinados multilíngue podem ter menor performance
-
-4. **Análise Temporal**:
-   - Não implementa análise de séries temporais
-   - Não detecta tendências ao longo do tempo
-
-### Trabalhos Futuros
-
-- [ ] **Interface Web**: Streamlit ou Gradio para acesso cidadão
-- [ ] **Análise Temporal**: Detecção de tendências e anomalias temporais
-- [ ] **Clustering**: Agrupamento automático de padrões de gastos
-- [ ] **Modelos Locais**: Substituir OpenAI por modelos open-source
-- [ ] **Visualizações**: Grafos interativos de relacionamentos
-- [ ] **Alertas**: Sistema de notificação para gastos suspeitos
-- [ ] **Comparações**: Benchmark entre deputados/partidos/estados
-- [ ] **Dados Complementares**: Integração com outras bases (TSE, TCU)
-
----
-
-## 🔧 Solução de Problemas (Troubleshooting)
-
-### Problemas Comuns
-
-#### 1. Erro: "OPENAI_API_KEY não configurada"
-
-**Sintoma**:
-```
-ValueError: OPENAI_API_KEY environment variable is not set
-```
-
-**Solução**:
-```bash
-# 1. Verifique se o arquivo .env existe
-ls -la .env
-
-# 2. Se não existir, crie a partir do exemplo
-cp .env.example .env
-
-# 3. Edite e adicione sua chave da OpenAI
-nano .env  # ou use seu editor preferido
-
-# 4. Verifique se a chave está correta
-echo $OPENAI_API_KEY  # Deve mostrar sua chave
-```
-
-#### 2. Erro: "Failed to generate embeddings"
-
-**Sintoma**:
-```
-RuntimeError: Failed to generate embeddings using OpenAI API
-```
-
-**Possíveis Causas e Soluções**:
-
-a) **Chave inválida ou expirada**:
-```bash
-# Teste sua chave diretamente
-curl https://api.openai.com/v1/models \
-  -H "Authorization: Bearer $OPENAI_API_KEY"
-```
-
-b) **Sem créditos na conta OpenAI**:
-- Acesse: https://platform.openai.com/account/billing
-- Verifique saldo e adicione créditos se necessário
-
-c) **Problemas de rede/proxy**:
+**Busca por Deputado:**
 ```python
-# Adicione proxy se necessário
-import os
-os.environ['HTTP_PROXY'] = 'http://proxy.exemplo.com:8080'
-os.environ['HTTPS_PROXY'] = 'http://proxy.exemplo.com:8080'
-```
-
-#### 3. Erro: "Connection refused" (Neo4j ou PostgreSQL)
-
-**Sintoma**:
-```
-ConnectionRefusedError: [Errno 111] Connection refused
-```
-
-**Solução para Neo4j**:
-```bash
-# Verifique se o Neo4j está rodando
-docker ps | grep neo4j
-
-# Se não estiver, inicie
-docker run -d \
-  --name neo4j \
-  -p 7474:7474 -p 7687:7687 \
-  -e NEO4J_AUTH=neo4j/password \
-  neo4j:latest
-
-# Teste a conexão
-curl http://localhost:7474
-```
-
-**Solução para PostgreSQL/Supabase**:
-```bash
-# Teste a conexão
-psql -h db.seu-projeto.supabase.co -U postgres -d postgres
-
-# Verifique se pgvector está instalado
-psql -h localhost -U postgres -c "CREATE EXTENSION IF NOT EXISTS vector;"
-```
-
-#### 4. Erro: "despesas_camara.csv not found"
-
-**Sintoma**:
-```
-ERROR: File 'despesas_camara.csv' not found!
-```
-
-**Solução**:
-```bash
-# Execute o ETL primeiro para gerar o CSV
-python etl_camara.py
-
-# Verifique se o arquivo foi criado
-ls -lh despesas_camara.csv
-```
-
-#### 5. Performance Lenta na Busca Vetorial
-
-**Sintoma**: Queries demoram mais de 5 segundos
-
-**Soluções**:
-
-a) **Verifique se o índice HNSW existe**:
-```sql
--- No PostgreSQL
-SELECT indexname, indexdef 
-FROM pg_indexes 
-WHERE tablename = 'despesas_parlamentares';
-```
-
-b) **Recrie o índice se necessário**:
-```sql
-DROP INDEX IF EXISTS despesas_parlamentares_embedding_idx;
-CREATE INDEX despesas_parlamentares_embedding_idx 
-ON despesas_parlamentares 
-USING hnsw (descricao_embedding vector_cosine_ops);
-```
-
-c) **Ajuste parâmetros do HNSW**:
-```sql
--- Aumenta precisão (mais lento)
-CREATE INDEX ... WITH (m = 32, ef_construction = 200);
-
--- Aumenta velocidade (menos preciso)
-CREATE INDEX ... WITH (m = 16, ef_construction = 64);
-```
-
-#### 6. Erro: "ModuleNotFoundError"
-
-**Sintoma**:
-```
-ModuleNotFoundError: No module named 'langchain'
-```
-
-**Solução**:
-```bash
-# Instale todas as dependências
-pip install -r requirements.txt
-
-# Se o problema persistir, atualize o pip
-pip install --upgrade pip
-pip install -r requirements.txt --force-reinstall
-```
-
-#### 7. Memory Error durante Ingestão
-
-**Sintoma**:
-```
-MemoryError: Unable to allocate array
-```
-
-**Solução**:
-```python
-# No ingest_data.py, reduza o BATCH_SIZE
-BATCH_SIZE = 100  # ao invés de 1000
-
-# Ou processe o CSV em chunks
-for chunk in pd.read_csv('despesas_camara.csv', chunksize=1000):
-    process_chunk(chunk)
-```
-
-#### 8. Erro no Script de Evidências (generate_evidence.py)
-
-**Sintoma**:
-```
-Erro ao capturar grafo Neo4j / Timeout ao conectar ao Neo4j
-```
-
-**Soluções**:
-
-a) **Verifique se o Neo4j está rodando**:
-```bash
-# Verifique se está rodando
-docker ps | grep neo4j
-
-# Se não estiver, inicie
-docker start neo4j
-
-# Ou crie um novo container
-docker run -d \
-  --name neo4j \
-  -p 7474:7474 -p 7687:7687 \
-  -e NEO4J_AUTH=neo4j/password \
-  neo4j:latest
-```
-
-b) **Verifique a senha no .env**:
-```bash
-# O script lê NEO4J_PASSWORD do arquivo .env
-cat .env | grep NEO4J_PASSWORD
-```
-
-c) **Playwright não instalado**:
-```bash
-pip install playwright
-playwright install chromium
-```
-
-**Sintoma**:
-```
-No module named 'playwright'
-```
-
-**Solução**:
-```bash
-pip install playwright
-playwright install chromium
-```
-
-**Nota**: O script funciona parcialmente mesmo sem Neo4j. Ele gerará as evidências 2 e 3 (IA e dados) usando respostas simuladas se necessário.
-
-### Logs e Debugging
-
-#### Habilitar Logs Detalhados
-
-```python
-# No início do script
-import logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+auditor_ai(
+    "Analise os gastos do deputado X",
+    search_strategies={'lexical_deputado': 'Nome Completo', 'semantic': True}
 )
 ```
 
-#### Verificar Saúde do Sistema
-
-```bash
-# Execute o script de verificação
-python setup_and_verify.py
-
-# Saída esperada:
-# 🎉 SISTEMA TOTALMENTE OPERACIONAL!
+**Busca por Fornecedor:**
+```python
+auditor_ai(
+    "Quem contratou a empresa Y?",
+    search_strategies={
+        'lexical_cnpj': '12345678000190',
+        'graph_patterns': {'type': 'fornecedor_deputados', 'value': '12345678000190'}
+    }
+)
 ```
 
-### Suporte Adicional
-
-- **GitHub Issues**: https://github.com/tavs-coelho/aprendizadodemaquina/issues
-- **Documentação OpenAI**: https://platform.openai.com/docs
-- **Neo4j Community**: https://community.neo4j.com
-- **Supabase Docs**: https://supabase.com/docs
+**Busca por Valores Altos:**
+```python
+auditor_ai(
+    "Mostre despesas acima de R$ 50 mil",
+    search_strategies={
+        'graph_patterns': {'type': 'valor_alto', 'value': 50000.0},
+        'semantic': True
+    }
+)
+```
 
 ---
 
-## 📝 Notas Importantes
+## 🏗️ Arquitetura Técnica
 
-- **Uso Ético**: Esta ferramenta é destinada à transparência e fiscalização cidadã. Use os dados de forma responsável.
-- **Dados Públicos**: Todos os dados são obtidos de APIs públicas do governo brasileiro.
-- **Custos**: O uso da API da OpenAI tem custos associados. Monitore seu uso.
-- **Privacidade**: Não armazene informações sensíveis no código ou repositório.
+### Stack Tecnológica
+
+| Camada | Tecnologia | Justificativa |
+|--------|-----------|---------------|
+| **ETL** | Python + Requests | Flexibilidade e bibliotecas ricas |
+| **Embeddings** | OpenAI text-embedding-3-small | Alta qualidade e custo-benefício |
+| **Vector DB** | PostgreSQL + pgvector | SQL familiar + extensão vetorial |
+| **Graph DB** | Neo4j | Especializado em relacionamentos |
+| **LLM** | GPT-4o-mini | Balanço entre custo e performance |
+| **Framework RAG** | LangChain | Orquestração de pipelines complexos |
+
+### Fluxo de Dados
+
+```
+API Câmara → ETL (Python) → CSV → Ingest Script
+                                       ↓
+                    ┌──────────────────┴──────────────────┐
+                    ↓                                     ↓
+          PostgreSQL + pgvector                       Neo4j
+          (Busca Lexical/Semântica)                  (Grafo)
+                    ↓                                     ↓
+                    └──────────────────┬──────────────────┘
+                                       ↓
+                                  RRF Algorithm
+                                       ↓
+                                  GPT-4o-mini
+                                       ↓
+                               Resposta ao Cidadão
+```
+
+---
+
+## 📈 Performance e Custos
+
+### Métricas de Performance
+
+- ⚡ **Tempo de Resposta**: 3-4 segundos (end-to-end)
+- 🔍 **Busca Vetorial**: ~200ms (com índice HNSW)
+- 📊 **Escalabilidade**: Testado com 100K+ registros
+- 🎯 **Precisão RRF**: Combina resultados de 3 fontes
+
+### Custos Estimados (OpenAI)
+
+| Operação | Custo por Unidade | Custo Mensal (100 queries) |
+|----------|-------------------|----------------------------|
+| Embedding (ingestão) | $0.00002/despesa | $2.00 (10K despesas) |
+| Query (embedding) | $0.00002/query | $0.002 |
+| Resposta LLM | $0.001/query | $0.10 |
+| **Total** | - | **~$2.10/mês** |
+
+💡 **Dica**: Para reduzir custos, considere cache de embeddings e modelos open-source locais.
+
+---
+
+## 🛡️ Segurança e Compliance
+
+### Boas Práticas Implementadas
+
+- ✅ **Queries Parametrizadas**: Previne SQL/Cypher Injection
+- ✅ **Sanitização de Entrada**: CNPJs e valores são validados
+- ✅ **Variáveis de Ambiente**: Credenciais não hardcoded
+- ✅ **Rate Limiting**: Respeita limites da API governamental
+- ✅ **Dados Públicos**: Conforme Lei de Acesso à Informação (LAI)
+
+### Privacidade
+
+- 🔓 **Dados Abertos**: Todos os dados são de domínio público
+- 📜 **Legislação**: Conforme Lei nº 12.527/2011 (LAI)
+- 🎯 **Finalidade**: Fiscalização cidadã e accountability
+
+---
+
+## 🚧 Limitações Conhecidas
+
+### Atuais
+
+- 📊 **Escala**: Otimizado para ~100K despesas (requer otimizações para milhões)
+- 🌐 **Idioma**: Apenas português brasileiro
+- 💰 **Custos**: Dependência de APIs pagas (OpenAI)
+- ⏱️ **Análise Temporal**: Não detecta tendências ao longo do tempo
+
+### Roadmap Futuro
+
+- [ ] Interface web com Streamlit/Gradio
+- [ ] Análise de séries temporais
+- [ ] Modelos open-source locais (Sentence-BERT)
+- [ ] Clustering automático de padrões
+- [ ] Sistema de alertas para gastos anômalos
+- [ ] Integração com TSE e TCU
+
+---
+
+## 📚 Documentação Adicional
+
+- 📖 [Exemplos de Uso Completos](./EXAMPLES.md)
+- 🤝 [Como Contribuir](./CONTRIBUTING.md)
+- 🔒 [Revisão de Segurança](./SECURITY_REVIEW.md)
+
+---
+
+## 🎓 Contexto Acadêmico
+
+Este projeto foi desenvolvido como trabalho final da disciplina de **Aprendizado de Máquina** na **Universidade Federal de Goiás (UFG)**, demonstrando aplicação prática de:
+
+- 🧠 Embeddings vetoriais e busca por similaridade
+- 🔗 Bancos de dados de grafos e análise de relacionamentos
+- 🤖 Large Language Models (LLMs) e Prompt Engineering
+- 🔄 Ensemble Learning (Reciprocal Rank Fusion)
+- 📊 ETL e Engenharia de Dados
+
+**Técnicas de Machine Learning Aplicadas:**
+- Representação vetorial de texto (Word Embeddings)
+- Approximate Nearest Neighbor Search (HNSW)
+- Retrieval-Augmented Generation (RAG)
+- Multi-Modal Learning (SQL + Vector + Graph)
 
 ---
 
 ## 📄 Licença
 
-Este projeto é parte do curso de Aprendizado de Máquina da Universidade Federal de Goiás (UFG).
+Este projeto é parte do curso de Aprendizado de Máquina da Universidade Federal de Goiás (UFG) e está disponível sob licença acadêmica para fins educacionais e de fiscalização cidadã.
 
 ---
 
 ## 🤝 Contribuições
 
-Contribuições são bem-vindas! Sinta-se à vontade para abrir issues ou pull requests.
+Contribuições são bem-vindas! Sinta-se à vontade para:
+
+- 🐛 Reportar bugs
+- 💡 Sugerir melhorias
+- 📝 Melhorar a documentação
+- 🔧 Enviar pull requests
+
+**Como Contribuir:**
+1. Fork o projeto
+2. Crie uma branch (`git checkout -b feature/MinhaFeature`)
+3. Commit suas mudanças (`git commit -m 'Adiciona MinhaFeature'`)
+4. Push para a branch (`git push origin feature/MinhaFeature`)
+5. Abra um Pull Request
 
 ---
 
 ## 📧 Contato
 
-Para dúvidas ou sugestões sobre o projeto, entre em contato através dos canais da UFG.
+**Autor**: Tavs Coelho  
+**Instituição**: Universidade Federal de Goiás (UFG) - Instituto de Informática  
+**Disciplina**: Aprendizado de Máquina  
+**GitHub**: [tavs-coelho/aprendizadodemaquina](https://github.com/tavs-coelho/aprendizadodemaquina)
+
+Para dúvidas, sugestões ou colaborações:
+- 🐛 **Issues**: [GitHub Issues](https://github.com/tavs-coelho/aprendizadodemaquina/issues)
+- 📧 **E-mail**: Através dos canais oficiais da UFG
+
+---
+
+## 🙏 Agradecimentos
+
+- **Câmara dos Deputados**: Por disponibilizar a API de Dados Abertos
+- **OpenAI**: Pela infraestrutura de embeddings e LLM
+- **Neo4j & PostgreSQL**: Pelos bancos de dados open-source
+- **LangChain**: Pelo framework RAG
+- **UFG**: Pelo suporte acadêmico e infraestrutura
+
+---
+
+<div align="center">
+
+**⭐ Se este projeto te ajudou, considere dar uma estrela!**
+
+[![GitHub stars](https://img.shields.io/github/stars/tavs-coelho/aprendizadodemaquina?style=social)](https://github.com/tavs-coelho/aprendizadodemaquina/stargazers)
+
+</div>
+
+---
+
+<div align="center">
+  <sub>Feito com ❤️ para transparência pública e fiscalização cidadã</sub>
+</div>
