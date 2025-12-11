@@ -278,6 +278,14 @@ cp .env.example .env
 # Edite o arquivo .env com suas credenciais
 ```
 
+**Ou deixe o script de verificação criar o template para você:**
+
+```bash
+python setup_and_verify.py
+# O script criará um arquivo .env se não existir
+# Depois edite o arquivo e execute o script novamente
+```
+
 ### 5. Prepare os Bancos de Dados
 
 **PostgreSQL:**
@@ -291,9 +299,63 @@ CREATE EXTENSION IF NOT EXISTS vector;
 - Faça login com as credenciais configuradas
 - O sistema criará os nós e relacionamentos automaticamente
 
+### 6. Verifique a Instalação
+
+Execute o script de verificação para garantir que tudo está funcionando:
+
+```bash
+python setup_and_verify.py
+```
+
+Se tudo estiver correto, você verá:
+```
+🎉 SISTEMA TOTALMENTE OPERACIONAL!
+Seu ambiente está configurado corretamente e todas as APIs estão respondendo.
+```
+
 ---
 
 ## 💻 Como Usar
+
+### Passo 0: Verificar Configuração do Ambiente (NOVO!)
+
+Antes de começar a usar o sistema, execute o script de verificação para diagnosticar problemas:
+
+```bash
+python setup_and_verify.py
+```
+
+**O que este script faz:**
+
+Este script foi desenvolvido como uma ferramenta de DevOps/QA que atua como um "doutor" do sistema, diagnosticando problemas de configuração e conectividade. Ele executa três fases:
+
+**Fase 1: Validação de Variáveis de Ambiente**
+- Verifica se o arquivo `.env` existe
+- Se não existir, cria automaticamente um template com valores padrão
+- Valida se as chaves críticas (OPENAI_API_KEY, senhas) não estão vazias ou com valor `insira_aqui`
+
+**Fase 2: Testes de Conectividade (Smoke Tests)**
+- **OpenAI**: Testa a chave da API com uma chamada barata (embedding de teste)
+- **Neo4j**: Tenta abrir uma sessão e verifica se o banco está acessível
+- **PostgreSQL**: Conecta ao banco e verifica se a extensão `pgvector` está instalada
+
+**Fase 3: Testes Funcionais do RAG (Integration Tests)**
+- Importa os módulos principais (etl_camara, ingest_data, auditor_ai)
+- Insere dados de teste (dummy) no sistema
+- Tenta recuperá-los via busca vetorial e busca em grafo
+- Remove os dados de teste após validação
+
+**Saída do Script:**
+
+O script usa cores no terminal para indicar status:
+- 🟢 Verde: SUCESSO
+- 🔴 Vermelho: FALHA
+- 🟡 Amarelo: AVISO
+- 🔵 Azul: INFORMAÇÃO
+
+Se algo der errado, o script dirá exatamente o que você precisa corrigir, por exemplo:
+- "Erro: Sua chave da OpenAI parece inválida. Verifique o arquivo .env"
+- "Erro: PostgreSQL não está respondendo. Verifique se o Docker está rodando"
 
 ### Passo 1: Extrair Dados da API (ETL)
 
