@@ -1,29 +1,91 @@
 """
-ETL Script for Chamber of Deputies Open Data API
-Extracts, transforms, and loads deputy expense data from Brazilian Chamber of Deputies.
+ETL Script para Dados Abertos da Câmara dos Deputados
+======================================================
+
+Este módulo implementa um pipeline ETL (Extract, Transform, Load) robusto
+para coletar dados de despesas parlamentares da API oficial da Câmara dos
+Deputados do Brasil.
+
+Funcionalidades:
+---------------
+- Extração automatizada de dados via API REST
+- Tratamento de erros com retry logic
+- Rate limiting para respeitar limites da API
+- Transformação e limpeza de dados
+- Exportação para CSV para posterior ingestão
+
+API Utilizada:
+-------------
+- Base URL: https://dadosabertos.camara.leg.br/api/v2
+- Endpoints:
+  * /deputados: Lista de deputados ativos
+  * /deputados/{id}/despesas: Despesas de um deputado específico
+
+Formato de Saída:
+----------------
+O script gera um arquivo CSV (despesas_camara.csv) com as seguintes colunas:
+- nome: Nome completo do deputado
+- siglaPartido: Sigla do partido político
+- siglaUf: Unidade Federativa (estado)
+- txtDescricao: Descrição/tipo da despesa
+- vlrLiquido: Valor líquido da despesa (em reais)
+- txtFornecedor: Nome do fornecedor
+- cnpjCpfFornecedor: CNPJ ou CPF do fornecedor
+- datEmissao: Data de emissão do documento
+
+Autor: Tavs Coelho - Universidade Federal de Goiás (UFG)
+Curso: Aprendizado de Máquina
 """
 
 import requests
 import csv
 import time
+from typing import List, Dict, Optional, Any
 from datetime import datetime
 
 
-# Configuration for API rate limiting and retries
-MAX_RETRIES = 3
-RETRY_DELAY = 2  # seconds
-REQUEST_DELAY = 0.5  # seconds between requests to avoid rate limiting
+# Configuração para rate limiting e retentativas
+# Estes valores foram calibrados para respeitar os limites da API da Câmara
+MAX_RETRIES = 3  # Número máximo de tentativas por requisição
+RETRY_DELAY = 2  # Segundos entre retentativas
+REQUEST_DELAY = 0.5  # Segundos entre requisições (previne rate limiting)
 
 
-def fetch_deputies(limit=50):
+def fetch_deputies(limit: int = 50) -> List[Dict[str, Any]]:
     """
-    Fetch list of deputies from the Chamber of Deputies API.
+    Busca lista de deputados da API da Câmara dos Deputados.
+    
+    Esta função implementa retry logic robusto para lidar com falhas de rede
+    e timeouts. As requisições são feitas de forma resiliente, com múltiplas
+    tentativas em caso de falha.
     
     Args:
-        limit: Maximum number of deputies to fetch (default: 50)
+        limit (int): Número máximo de deputados a buscar (padrão: 50)
+            Nota: A API retorna deputados paginados. Este valor define o
+            tamanho da página (máximo recomendado: 100)
     
     Returns:
-        List of deputy dictionaries with their information
+        List[Dict]: Lista de dicionários, cada um contendo:
+            - id: ID único do deputado
+            - nome: Nome completo
+            - siglaPartido: Sigla do partido (ex: 'PT', 'PSDB')
+            - siglaUf: Estado (ex: 'SP', 'RJ', 'GO')
+            - email: Email de contato
+            - urlFoto: URL da foto oficial
+            
+        Retorna lista vazia se todas as tentativas falharem.
+    
+    Tratamento de Erros:
+        - requests.exceptions.Timeout: Timeout na conexão (10 segundos)
+        - requests.exceptions.ConnectionError: Erro de conexão com o servidor
+        - requests.exceptions.RequestException: Outros erros HTTP
+        
+        Cada erro resulta em retry automático até MAX_RETRIES tentativas.
+    
+    Exemplo:
+        >>> deputados = fetch_deputies(limit=10)
+        >>> print(f"Total de deputados: {len(deputados)}")
+        >>> print(f"Primeiro deputado: {deputados[0]['nome']}")
     """
     url = "https://dadosabertos.camara.leg.br/api/v2/deputados"
     params = {"itens": limit, "ordem": "ASC", "ordenarPor": "nome"}

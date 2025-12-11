@@ -1,16 +1,48 @@
 """
 Auditor AI - Sistema de RAG para Auditoria de Despesas Parlamentares
+======================================================================
 
-Este módulo implementa um sistema de Retrieval-Augmented Generation (RAG) 
-para auditar despesas parlamentares usando múltiplas fontes de busca:
-- Busca Lexical (SQL no Postgres)
-- Busca Semântica (Vetorial no Postgres)
-- Busca de Padrões (Grafos no Neo4j)
+Este módulo implementa um sistema completo de Retrieval-Augmented Generation (RAG) 
+para auditoria inteligente de despesas parlamentares brasileiras.
+
+Arquitetura Multimodal:
+-----------------------
+O sistema combina três estratégias de busca para fornecer análises abrangentes:
+
+1. **Busca Lexical (SQL no PostgreSQL)**
+   - Busca exata por nome de deputado ou CNPJ de fornecedor
+   - Utiliza índices tradicionais de banco de dados
+   - Ideal para consultas específicas e filtros diretos
+
+2. **Busca Semântica (Vetorial no PostgreSQL + pgvector)**
+   - Busca por similaridade usando embeddings OpenAI (text-embedding-3-small)
+   - Encontra gastos semanticamente relacionados mesmo com termos diferentes
+   - Exemplo: "aluguel de carros" encontra "locação de veículos"
+
+3. **Busca de Padrões (Grafos no Neo4j)**
+   - Análise de relações entre deputados e fornecedores
+   - Identificação de redes de pagamento
+   - Detecção de padrões suspeitos e concentração de gastos
+
+Fusão de Resultados:
+-------------------
+Os resultados das três buscas são combinados usando o algoritmo Reciprocal Rank 
+Fusion (RRF), que prioriza itens que aparecem bem ranqueados em múltiplas fontes.
+
+Geração de Resposta:
+-------------------
+Um Large Language Model (GPT-4o-mini) analisa os dados recuperados e gera 
+respostas contextualizadas, identificando padrões suspeitos e fornecendo 
+análises críticas baseadas em evidências.
+
+Autor: Tavs Coelho - Universidade Federal de Goiás (UFG)
+Curso: Aprendizado de Máquina
 """
 
 import os
 import logging
 import hashlib
+from typing import List, Dict, Any, Optional, Union
 from urllib.parse import quote_plus
 import pandas as pd
 from neo4j import GraphDatabase
@@ -30,20 +62,45 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 
-def search_lexical(query, search_type="deputado", limit=10):
+def search_lexical(query: str, search_type: str = "deputado", limit: int = 10) -> List[Dict[str, Any]]:
     """
-    Busca SQL no Postgres por nome de deputado ou fornecedor (CNPJ).
+    Realiza busca lexical (SQL) no PostgreSQL por deputado ou fornecedor.
+    
+    Esta função implementa busca tradicional de banco de dados usando índices SQL.
+    É otimizada para consultas exatas ou parciais usando LIKE pattern matching.
+    
+    Casos de Uso:
+    ------------
+    - Buscar despesas de um deputado específico pelo nome
+    - Buscar todas as transações com um fornecedor específico pelo CNPJ
+    - Filtrar despesas por critérios exatos
     
     Args:
-        query (str): Nome do deputado ou CNPJ do fornecedor para buscar
-        search_type (str): Tipo de busca - "deputado" ou "cnpj" (default: "deputado")
-        limit (int): Número máximo de resultados (default: 10)
+        query (str): Termo de busca (nome do deputado ou CNPJ do fornecedor)
+        search_type (str): Tipo de busca - "deputado" ou "cnpj" (padrão: "deputado")
+        limit (int): Número máximo de resultados retornados (padrão: 10)
     
     Returns:
-        list: Lista de dicionários contendo informações das despesas
+        List[Dict[str, Any]]: Lista de dicionários contendo informações das despesas:
+            - nome_deputado: Nome completo do deputado
+            - cnpj_fornecedor: CNPJ/CPF do fornecedor (sanitizado)
+            - nome_fornecedor: Nome ou razão social do fornecedor
+            - descricao_despesa: Descrição detalhada da despesa
+            - valor: Valor em reais (BRL)
+            - data_despesa: Data de emissão do documento
     
     Raises:
-        ValueError: Se as variáveis de ambiente do Postgres não estiverem configuradas
+        ValueError: Se variáveis de ambiente do PostgreSQL não estiverem configuradas
+        ValueError: Se search_type não for "deputado" ou "cnpj"
+    
+    Exemplo:
+        >>> despesas = search_lexical("João Silva", search_type="deputado", limit=5)
+        >>> print(f"Encontradas {len(despesas)} despesas")
+        >>> print(f"Primeira despesa: R$ {despesas[0]['valor']}")
+    
+    Nota de Segurança:
+        Utiliza queries parametrizadas do SQLAlchemy para prevenir SQL injection.
+        Todas as queries usam o padrão :parameter para binding seguro.
     """
     # Obter credenciais do Postgres
     db_url = os.getenv("SUPABASE_URL")
@@ -124,22 +181,55 @@ def search_lexical(query, search_type="deputado", limit=10):
         engine.dispose()
 
 
-def search_semantic(query_text, limit=10):
+def search_semantic(query_text: str, limit: int = 10) -> List[Dict[str, Any]]:
     """
-    Busca Vetorial no Postgres comparando a pergunta do usuário com a descrição da despesa.
+    Realiza busca semântica usando embeddings vetoriais no PostgreSQL.
     
-    Utiliza embeddings do OpenAI para converter a pergunta em vetor e busca 
-    similaridade com as descrições de despesas armazenadas.
+    Esta função converte a pergunta do usuário em um vetor usando o modelo
+    text-embedding-3-small da OpenAI e busca despesas semanticamente similares
+    no banco de dados usando a extensão pgvector.
+    
+    Vantagens da Busca Semântica:
+    -----------------------------
+    - Encontra conteúdo relacionado mesmo com vocabulário diferente
+    - Compreende sinônimos e variações linguísticas
+    - Captura o significado contextual da consulta
+    - Não requer correspondência exata de palavras-chave
+    
+    Exemplos de Busca:
+    -----------------
+    - "aluguel de carros de luxo" → encontra "locação de veículos premium"
+    - "gastos com alimentação" → encontra "despesas com refeições", "buffet", etc.
+    - "consultoria suspeita" → encontra "serviços de assessoria" com valores altos
     
     Args:
-        query_text (str): Pergunta ou descrição a ser buscada (ex: 'aluguel de carros de luxo')
-        limit (int): Número máximo de resultados (default: 10)
+        query_text (str): Pergunta ou descrição em linguagem natural
+        limit (int): Número máximo de resultados (padrão: 10)
     
     Returns:
-        list: Lista de dicionários contendo informações das despesas mais similares
+        List[Dict[str, Any]]: Lista de despesas ordenadas por similaridade, contendo:
+            - nome_deputado: Nome do deputado
+            - cnpj_fornecedor: CNPJ do fornecedor
+            - nome_fornecedor: Nome do fornecedor
+            - descricao_despesa: Descrição da despesa
+            - valor: Valor em reais
+            - data_despesa: Data da transação
+            - distance: Distância vetorial (menor = mais similar)
     
     Raises:
-        ValueError: Se as variáveis de ambiente não estiverem configuradas
+        ValueError: Se OPENAI_API_KEY não estiver configurada
+        ValueError: Se variáveis de ambiente do PostgreSQL não estiverem configuradas
+        RuntimeError: Se falhar ao gerar embeddings via API da OpenAI
+    
+    Exemplo:
+        >>> resultados = search_semantic("gastos excessivos com viagens", limit=5)
+        >>> for r in resultados[:3]:
+        ...     print(f"{r['nome_deputado']}: R$ {r['valor']:.2f}")
+    
+    Implementação Técnica:
+        - Modelo de embedding: text-embedding-3-small (1536 dimensões)
+        - Métrica de similaridade: Distância de cosseno (<=> operator)
+        - Índice: HNSW (Hierarchical Navigable Small World) para performance
     """
     # Validar API key do OpenAI
     openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -224,23 +314,70 @@ def search_semantic(query_text, limit=10):
         engine.dispose()
 
 
-def search_graph_patterns(query_type, param_value, limit=10):
+def search_graph_patterns(query_type: str, param_value: Union[str, float, int], limit: int = 10) -> List[Dict[str, Any]]:
     """
-    Consulta o Neo4j para encontrar padrões nas despesas parlamentares.
+    Consulta padrões complexos no grafo de relacionamentos do Neo4j.
+    
+    Esta função utiliza o poder dos bancos de dados de grafos para identificar
+    padrões e relações entre deputados e fornecedores que seriam difíceis de
+    detectar com queries SQL tradicionais.
+    
+    Tipos de Análise Disponíveis:
+    -----------------------------
+    
+    1. **fornecedor_deputados**: Rede de deputados que pagaram um fornecedor
+       - Identifica fornecedores que recebem de múltiplos deputados
+       - Útil para detectar concentração de pagamentos
+       - Retorna: deputados, número de transações, total pago
+    
+    2. **deputado_fornecedores**: Rede de fornecedores de um deputado
+       - Mostra todos os fornecedores contratados por um deputado
+       - Identifica preferências e padrões de contratação
+       - Retorna: fornecedores, frequência, valor total
+    
+    3. **valor_alto**: Despesas acima de um threshold
+       - Filtra transações de alto valor
+       - Útil para auditoria de outliers
+       - Retorna: deputado, fornecedor, valor, descrição
     
     Args:
-        query_type (str): Tipo de consulta - opções:
-            - "fornecedor_deputados": Quais outros deputados pagaram este mesmo fornecedor?
-            - "deputado_fornecedores": Quais fornecedores este deputado pagou?
-            - "valor_alto": Deputados com despesas acima de um valor específico
-        param_value: Valor do parâmetro (CNPJ para fornecedor, nome para deputado, valor para threshold)
-        limit (int): Número máximo de resultados (default: 10)
+        query_type (str): Tipo de análise - veja "Tipos de Análise" acima
+        param_value (Union[str, float, int]): Parâmetro da busca:
+            - Para "fornecedor_deputados": CNPJ do fornecedor
+            - Para "deputado_fornecedores": Nome do deputado (parcial)
+            - Para "valor_alto": Valor mínimo (float)
+        limit (int): Número máximo de resultados (padrão: 10)
     
     Returns:
-        list: Lista de dicionários com padrões encontrados
+        List[Dict[str, Any]]: Lista de padrões encontrados. Estrutura varia por tipo:
+            - fornecedor_deputados/deputado_fornecedores:
+                {nome_deputado, nome_fornecedor, cnpj_fornecedor, 
+                 num_transacoes, total_pago}
+            - valor_alto:
+                {nome_deputado, nome_fornecedor, cnpj_fornecedor,
+                 descricao_despesa, valor, data_despesa}
     
     Raises:
-        ValueError: Se as variáveis de ambiente do Neo4j não estiverem configuradas
+        ValueError: Se variáveis de ambiente do Neo4j não estiverem configuradas
+        ValueError: Se query_type for inválido
+    
+    Exemplos:
+        >>> # Encontrar deputados que pagaram a empresa X
+        >>> rede = search_graph_patterns(
+        ...     "fornecedor_deputados", 
+        ...     "12345678000190", 
+        ...     limit=20
+        ... )
+        >>> print(f"{len(rede)} deputados pagaram este fornecedor")
+        
+        >>> # Gastos acima de R$ 50.000
+        >>> altos = search_graph_patterns("valor_alto", 50000.0, limit=10)
+        >>> for g in altos:
+        ...     print(f"{g['nome_deputado']}: R$ {g['valor']:.2f}")
+    
+    Nota de Segurança:
+        Utiliza queries parametrizadas do Neo4j ($param) para prevenir
+        Cypher injection. O driver Neo4j sanitiza automaticamente os parâmetros.
     """
     # Obter credenciais do Neo4j
     neo4j_uri = os.getenv("NEO4J_URI")
@@ -326,24 +463,60 @@ def search_graph_patterns(query_type, param_value, limit=10):
         driver.close()
 
 
-def reciprocal_rank_fusion(search_results, k=60):
+def reciprocal_rank_fusion(search_results: List[List[str]], k: int = 60) -> pd.DataFrame:
     """
-    Aplica o algoritmo Reciprocal Rank Fusion (RRF) para combinar múltiplos resultados de busca.
+    Aplica o algoritmo Reciprocal Rank Fusion (RRF) para combinar múltiplos rankings.
     
-    O RRF é uma técnica que combina rankings de diferentes métodos de busca,
-    dando mais peso aos itens que aparecem bem ranqueados em múltiplas buscas.
+    O RRF é uma técnica de fusão de rankings que combina resultados de diferentes
+    métodos de busca de forma robusta e eficiente. A grande vantagem é que o RRF
+    não requer normalização de scores entre diferentes métodos de busca.
+    
+    Algoritmo:
+    ---------
+    Para cada item que aparece em qualquer ranking, calculamos:
+    
+        RRF_Score(item) = Σ [ 1 / (k + rank_i) ]
+        
+    Onde:
+    - rank_i: posição do item no i-ésimo ranking (1-indexed)
+    - k: constante que controla o peso do ranking (padrão: 60)
+    - Σ: soma sobre todos os rankings onde o item aparece
+    
+    Propriedades:
+    ------------
+    - Items que aparecem em múltiplos rankings recebem score mais alto
+    - Items bem ranqueados (posição 1, 2, 3) têm maior contribuição
+    - Listas vazias são automaticamente ignoradas
+    - Robusto a diferenças de tamanho entre listas
     
     Args:
-        search_results: Lista de listas, onde cada lista interna contém IDs de despesas
-                       ranqueadas por relevância (primeiro elemento é rank 1)
-        k: Constante para a fórmula RRF (default: 60)
+        search_results (List[List[str]]): Lista de rankings, onde cada ranking
+            é uma lista de IDs ordenados por relevância (primeiro = mais relevante)
+        k (int): Constante de suavização RRF (padrão: 60, valor recomendado na literatura)
     
     Returns:
-        pandas.DataFrame com colunas 'despesa_id' e 'rrf_score',
-        ordenado por rrf_score em ordem decrescente
+        pd.DataFrame: DataFrame com colunas 'despesa_id' e 'rrf_score',
+            ordenado por rrf_score em ordem decrescente (maior score = mais relevante)
     
-    Formula:
-        RRF_Score = ∑(1 / (k + rank_i)) para todos os resultados contendo a despesa
+    Exemplo:
+        >>> # Três buscas diferentes retornam resultados parcialmente sobrepostos
+        >>> lexical_results = ['id1', 'id2', 'id3']
+        >>> semantic_results = ['id1', 'id4', 'id5']
+        >>> graph_results = ['id2', 'id1', 'id6']
+        >>> 
+        >>> fused = reciprocal_rank_fusion(
+        ...     [lexical_results, semantic_results, graph_results],
+        ...     k=60
+        ... )
+        >>> print(fused.head())
+        #   despesa_id  rrf_score
+        # 0       id1   0.049180  <- Aparece em todas as 3 listas
+        # 1       id2   0.032895  <- Aparece em 2 listas
+        
+    Referência:
+        Cormack, G. V., Clarke, C. L., & Buettcher, S. (2009).
+        Reciprocal rank fusion outperforms condorcet and individual rank 
+        learning methods. SIGIR '09.
     """
     # Dicionário para acumular scores RRF para cada despesa
     rrf_scores = {}
@@ -367,15 +540,48 @@ def reciprocal_rank_fusion(search_results, k=60):
     return df
 
 
-def format_expense_context(expenses):
+def format_expense_context(expenses: List[Dict[str, Any]]) -> str:
     """
-    Formata os dados de despesas em um contexto textual para o LLM.
+    Formata lista de despesas em texto estruturado para o LLM.
+    
+    Esta função converte dados estruturados de despesas em um formato textual
+    legível que será usado como contexto para o Large Language Model (LLM).
+    A formatação é otimizada para facilitar a análise do modelo.
     
     Args:
-        expenses: Lista de dicionários contendo informações de despesas
+        expenses (List[Dict[str, Any]]): Lista de dicionários de despesas, onde cada
+            dicionário pode conter:
+            - nome_deputado: Nome do deputado
+            - nome_fornecedor: Nome do fornecedor
+            - cnpj_fornecedor: CNPJ/CPF do fornecedor
+            - descricao_despesa: Descrição da despesa
+            - valor: Valor monetário
+            - data_despesa: Data da transação
+            - num_transacoes: (opcional) Número de transações agregadas
+            - total_pago: (opcional) Total pago em múltiplas transações
     
     Returns:
-        str: Contexto formatado em texto
+        str: Texto formatado com todas as despesas, uma por parágrafo.
+             Se a lista estiver vazia, retorna "Nenhuma despesa encontrada."
+    
+    Exemplo de Saída:
+        ```
+        Despesa 1:
+        - Deputado: João Silva
+        - Fornecedor: Empresa ABC Ltda
+        - CNPJ: 12345678000190
+        - Descrição: Locação de veículos
+        - Valor: R$ 15000.00
+        - Data: 2024-03-15
+        
+        Despesa 2:
+        - Deputado: Maria Santos
+        - Fornecedor: Consultoria XYZ
+        - CNPJ: 98765432000110
+        - Descrição: Serviços de consultoria
+        - Valor: R$ 45000.00
+        - Data: 2024-02-20
+        ```
     """
     if not expenses:
         return "Nenhuma despesa encontrada."
@@ -426,29 +632,97 @@ def _create_expense_id(expense):
     return hashlib.sha256(id_string.encode('utf-8')).hexdigest()[:16]
 
 
-def auditor_ai(user_question, search_strategies=None):
+def auditor_ai(user_question: str, search_strategies: Optional[Dict[str, Any]] = None) -> str:
     """
-    Sistema RAG completo para auditoria de despesas parlamentares.
+    Sistema RAG completo para auditoria inteligente de despesas parlamentares.
     
-    Combina diferentes estratégias de busca usando RRF e gera uma resposta
-    usando LangChain com um prompt específico de Auditor Cidadão.
+    Esta é a função principal do sistema Fiscalizador Cidadão. Ela orquestra
+    todo o pipeline RAG: busca multimodal, fusão de rankings e geração de
+    resposta com análise crítica usando IA.
+    
+    Fluxo de Execução:
+    -----------------
+    1. **Coleta de Dados**: Executa buscas paralelas em múltiplas fontes
+       - Busca lexical (SQL)
+       - Busca semântica (vetorial)
+       - Busca de padrões (grafos)
+    
+    2. **Fusão de Rankings**: Aplica RRF para combinar resultados
+       - Prioriza itens que aparecem em múltiplas buscas
+       - Cria ranking consolidado
+    
+    3. **Geração de Contexto**: Formata os dados para o LLM
+    
+    4. **Análise com IA**: LLM (GPT-4o-mini) analisa os dados e gera resposta
+       - Identifica padrões suspeitos
+       - Quantifica valores e datas
+       - Fornece análise crítica profissional
     
     Args:
-        user_question (str): Pergunta do usuário sobre despesas parlamentares
-        search_strategies (dict, optional): Dicionário com estratégias de busca a usar.
-            Exemplo: {
-                'lexical_deputado': 'Nome do Deputado',
-                'lexical_cnpj': '12345678000190',
-                'semantic': True,
-                'graph_patterns': {'type': 'fornecedor_deputados', 'value': 'CNPJ'}
-            }
-            Se None, usa apenas busca semântica
+        user_question (str): Pergunta do cidadão sobre despesas parlamentares
+            Exemplos:
+            - "Mostre gastos suspeitos com alimentação"
+            - "Quanto o deputado João Silva gastou em 2024?"
+            - "Quais deputados contrataram a empresa X?"
+        
+        search_strategies (Optional[Dict[str, Any]]): Dicionário configurando
+            quais estratégias de busca usar. Se None, usa apenas busca semântica.
+            
+            Opções disponíveis:
+            - 'lexical_deputado' (str): Nome do deputado para busca SQL
+            - 'lexical_cnpj' (str): CNPJ para busca SQL
+            - 'semantic' (bool): Se True, executa busca semântica
+            - 'graph_patterns' (dict): Configuração para busca em grafo
+                * 'type': tipo de análise (ver search_graph_patterns)
+                * 'value': parâmetro da análise
     
     Returns:
-        str: Resposta gerada pelo Auditor AI
+        str: Resposta gerada pelo Auditor AI com análise detalhada das despesas,
+             incluindo valores exatos, nomes, datas e observações críticas.
     
     Raises:
         ValueError: Se OPENAI_API_KEY não estiver configurada
+    
+    Exemplos de Uso:
+    ---------------
+    
+    Exemplo 1: Busca semântica simples
+        >>> resposta = auditor_ai("Mostre gastos com aluguel de carros")
+        >>> print(resposta)
+        Com base nos dados recuperados, identifiquei as seguintes despesas...
+    
+    Exemplo 2: Análise de deputado específico
+        >>> resposta = auditor_ai(
+        ...     "Quais foram os gastos do deputado João Silva?",
+        ...     search_strategies={
+        ...         'lexical_deputado': 'João Silva',
+        ...         'semantic': True
+        ...     }
+        ... )
+    
+    Exemplo 3: Análise de rede de fornecedores
+        >>> resposta = auditor_ai(
+        ...     "Quais deputados pagaram a empresa X?",
+        ...     search_strategies={
+        ...         'lexical_cnpj': '12345678000190',
+        ...         'graph_patterns': {
+        ...             'type': 'fornecedor_deputados',
+        ...             'value': '12345678000190'
+        ...         }
+        ...     }
+        ... )
+    
+    Configuração do LLM:
+    -------------------
+    - Modelo: gpt-4o-mini (custo-benefício otimizado)
+    - Temperature: 0.3 (baixa para respostas objetivas e consistentes)
+    - System Prompt: Especializado em auditoria crítica
+    
+    Performance:
+    -----------
+    - Tempo médio: 2-5 segundos (depende de chamadas à API OpenAI)
+    - Máximo de despesas analisadas: 15 (top do ranking RRF)
+    - Geração de embeddings: ~0.1s por consulta
     """
     # Validar API key do OpenAI
     openai_api_key = os.getenv("OPENAI_API_KEY")

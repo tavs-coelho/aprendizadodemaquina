@@ -1,6 +1,18 @@
 """
-Test suite for Fiscalizador Cidadão functions
-Tests critical functionality without requiring external database connections
+Suite de Testes - Fiscalizador Cidadão
+=======================================
+
+Testes unitários para funções críticas do sistema sem dependências externas.
+Pode ser executado sem conexão com bancos de dados ou APIs.
+
+Funções Testadas:
+----------------
+1. sanitize_cnpj(): Limpeza e normalização de CNPJs
+2. convert_valor(): Conversão de valores monetários
+3. reciprocal_rank_fusion(): Algoritmo RRF para fusão de rankings
+
+Autor: Tavs Coelho - Universidade Federal de Goiás (UFG)
+Curso: Aprendizado de Máquina
 """
 
 import pandas as pd
@@ -46,7 +58,19 @@ def reciprocal_rank_fusion(search_results, k=60):
 
 
 def test_sanitize_cnpj():
-    """Test CNPJ sanitization function"""
+    """
+    Testa a função de sanitização de CNPJ.
+    
+    Casos de Teste:
+    --------------
+    - CNPJ com formatação completa (pontos, barra, hífen)
+    - CNPJ já sanitizado (apenas números)
+    - CNPJ com espaços extras
+    - Strings vazias
+    - Valores None e pd.NA
+    
+    Objetivo: Garantir unicidade de nós :Fornecedor no Neo4j
+    """
     print("\n=== Testing sanitize_cnpj() ===")
     
     test_cases = [
@@ -75,7 +99,19 @@ def test_sanitize_cnpj():
 
 
 def test_convert_valor():
-    """Test monetary value conversion function"""
+    """
+    Testa a função de conversão de valores monetários.
+    
+    Casos de Teste:
+    --------------
+    - Formato com ponto decimal (1234.56)
+    - Formato com vírgula decimal (1234,56)
+    - Formato com símbolo R$
+    - Valores numéricos (int e float)
+    - Strings vazias e None
+    
+    Objetivo: Normalizar valores para armazenamento consistente
+    """
     print("\n=== Testing convert_valor() ===")
     
     test_cases = [
@@ -108,7 +144,18 @@ def test_convert_valor():
 
 
 def test_rrf_empty_lists():
-    """Test RRF handles empty lists correctly"""
+    """
+    Testa RRF com listas vazias.
+    
+    Casos de Teste:
+    --------------
+    - Todas as listas vazias
+    - Algumas listas vazias (misturadas)
+    - Primeira lista vazia
+    - Todas as listas com dados
+    
+    Objetivo: Garantir robustez do algoritmo RRF
+    """
     print("\n=== Testing Reciprocal Rank Fusion with empty lists ===")
     
     test_cases = [
@@ -140,7 +187,18 @@ def test_rrf_empty_lists():
 
 
 def test_rrf_scoring():
-    """Test RRF scoring is calculated correctly"""
+    """
+    Testa cálculo correto de scores RRF.
+    
+    Caso de Teste:
+    -------------
+    - Item aparece em múltiplas listas em diferentes posições
+    - Verifica se item com maior consenso recebe maior score
+    
+    Fórmula: RRF_Score(item) = Σ [1 / (k + rank_i)]
+    
+    Objetivo: Validar implementação matemática do RRF
+    """
     print("\n=== Testing RRF scoring calculation ===")
     
     # Test case: item appearing in multiple lists should have higher score
@@ -168,7 +226,12 @@ def test_rrf_scoring():
 
 
 def run_all_tests():
-    """Run all tests"""
+    """
+    Executa todos os testes e gera relatório.
+    
+    Retorna:
+        bool: True se todos os testes passaram, False caso contrário
+    """
     print("="*60)
     print("FISCALIZADOR CIDADÃO - TEST SUITE")
     print("="*60)
