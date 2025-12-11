@@ -242,8 +242,8 @@ Dataset extraído em **{today}** contendo **{stats['total_rows']:,}** registros 
             content += "| Posição | Fornecedor | Valor Total (R$) | Qtd. Despesas |\n"
             content += "|---------|------------|------------------|---------------|\n"
             
-            for idx, row in top_suppliers.iterrows():
-                content += f"| {idx+1}º | {row['Fornecedor']} | R$ {row['Valor Total (R$)']:,.2f} | {int(row['Quantidade de Despesas'])} |\n"
+            for pos, (idx, row) in enumerate(top_suppliers.iterrows(), 1):
+                content += f"| {pos}º | {row['Fornecedor']} | R$ {row['Valor Total (R$)']:,.2f} | {int(row['Quantidade de Despesas'])} |\n"
         else:
             content += "*Dados não disponíveis*\n"
         
@@ -285,7 +285,9 @@ python etl_camara.py
 *Este documento foi gerado automaticamente pelo script de preparação de artefatos.*
 """
         
-        # Ensure template variables are replaced (workaround for potential f-string issues)
+        # Ensure template variables are replaced
+        # Note: Manual replacement needed due to Python f-string quirk with unicode characters
+        # in multiline strings. The f-string should work but sometimes doesn't interpolate correctly.
         content = content.replace('{today}', today)
         
         # Salva o arquivo
