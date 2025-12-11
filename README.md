@@ -18,6 +18,7 @@ Uma ferramenta RAG (Retrieval-Augmented Generation) Multimodal para investigar e
 - [Visão Geral](#visão-geral)
 - [Contexto Acadêmico](#contexto-acadêmico)
 - [Tecnologias](#tecnologias)
+- [Arquitetura da Solução](#arquitetura-da-solução)
 - [Arquitetura de Dados](#arquitetura-de-dados)
 - [Funcionalidades](#funcionalidades)
 - [Requisitos do Sistema](#requisitos-do-sistema)
@@ -96,6 +97,18 @@ Este projeto foi desenvolvido como trabalho final da disciplina de **Aprendizado
 - **LLM & Embeddings**: OpenAI (GPT-4o-mini, text-embedding-3-small)
 - **Framework RAG**: LangChain
 - **Fonte de Dados**: API de Dados Abertos da Câmara dos Deputados
+
+---
+
+## 🎯 Arquitetura da Solução
+
+A escolha da stack tecnológica deste projeto foi guiada pela necessidade de combinar diferentes paradigmas de busca e análise de dados. Cada tecnologia foi selecionada estrategicamente para resolver problemas específicos:
+
+- **Por que Neo4j?** Para detectar redes de fornecedores compartilhados entre partidos que o SQL não veria facilmente. O banco de dados em grafo permite identificar padrões complexos de relacionamento, como fornecedores que prestam serviços para múltiplos deputados de partidos diferentes, revelando possíveis conflitos de interesse ou práticas coordenadas que seriam invisíveis em consultas SQL tradicionais.
+
+- **Por que Pgvector?** Para encontrar gastos descritos de forma vaga (ex: 'serviços gerais') através de similaridade semântica. Muitas despesas parlamentares usam descrições genéricas ou eufemismos. O pgvector permite buscar por conceitos semânticos, não apenas palavras-chave exatas, identificando gastos suspeitos mesmo quando deliberadamente ofuscados na descrição.
+
+- **Por que RAG Híbrido?** Para garantir que a IA tenha acesso a fatos exatos (valores) e contexto (padrões). A combinação de busca lexical (SQL), busca semântica (embeddings) e busca em grafo (Neo4j) através do algoritmo RRF (Reciprocal Rank Fusion) assegura que as respostas do sistema sejam baseadas tanto em dados precisos quanto em insights contextuais, evitando alucinações da IA e garantindo auditoria factual.
 
 ---
 
