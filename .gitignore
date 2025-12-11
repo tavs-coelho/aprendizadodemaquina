@@ -29,3 +29,8 @@ chroma_db/
 
 # ETL output files
 despesas_camara.csv
+
+# Evidence generation output
+evidencias/
+report_temp.html
+data_temp.html
