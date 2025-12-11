@@ -475,7 +475,6 @@ API Câmara → ETL (Python) → CSV → Ingest Script
 ## 📚 Documentação Adicional
 
 - 📖 [Exemplos de Uso Completos](./EXAMPLES.md)
-- 🔧 [Guia de Troubleshooting](./README.md#solução-de-problemas)
 - 🤝 [Como Contribuir](./CONTRIBUTING.md)
 - 🔒 [Revisão de Segurança](./SECURITY_REVIEW.md)
 
